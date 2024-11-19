@@ -157,11 +157,11 @@ class RegressionBase :
         if (!nan_mask_.size()) nan_mask_.resize(Base::n_locs());
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
-            W_ = df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal();
+            W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
             model().runtime().set(runtime_status::require_W_update);
         } else if (is_empty(W_)) {
             // default to homoskedastic observations
-            W_ = DVector<double>::Ones(Base::n_locs()).asDiagonal();
+            W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
         }
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(WEIGHTS_BLK))) {

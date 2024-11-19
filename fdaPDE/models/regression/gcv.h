@@ -72,7 +72,7 @@ class GCV {
         double dor = n - (q + trS);       // residual degrees of freedom
         edfs_.emplace_back(q + trS);      // store equivalent degrees of freedom
         // return gcv at point
-        double gcv_value = (n / std::pow(dor, 2)) * (model_.norm(model_.fitted(), model_.y()));
+        double gcv_value = model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2);  // M: tolta costante a causa della rinormalizzazione loss 
         gcvs_.emplace_back(gcv_value);
         return gcv_value;
     }
@@ -110,7 +110,7 @@ class GCV {
         double trS = cache_[model_.lambda()];
         // GCV(\lambda) = n/((n - (q + Tr[S]))^2)*norm(y - \hat y)^2
         double dor = model_.n_obs() - (model_.q() + trS);   // (n - (q + Tr[S])
-        return (model_.n_obs() / std::pow(dor, 2)) * (model_.norm(model_.fitted(), model_.y()));
+        return (model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2));   // M: tolta costante a causa della rinormalizzazione loss  
     }
 
     // set edf_evaluation strategy

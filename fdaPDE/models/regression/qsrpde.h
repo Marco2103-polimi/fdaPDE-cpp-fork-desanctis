@@ -58,16 +58,24 @@ class QSRPDE : public RegressionBase<QSRPDE<RegularizationType_>, Regularization
     }
     // setter
     void set_fpirls_tolerance(double tol) { tol_ = tol; }
-    void set_fpirls_max_iter(int max_iter) { max_iter_ = max_iter; }
+    void set_fpirls_max_iter(int max_iter) { 
+        std::cout << "setting max_iter fpirls to " << max_iter << std::endl; 
+        max_iter_ = max_iter; 
+        fpirls_.set_max_iter(max_iter);   // M: update variable in fpirls object
+    }
     void set_alpha(double alpha) { alpha_ = alpha; }
     void set_eps_power(double eps) { eps_ = eps; }
     void set_weights_tolerance(double tol_weights) { tol_weights_ = tol_weights; }
 
-    void init_model() { fpirls_.init(); }
+    void init_model() { 
+        fpirls_.init();
+    }
     void solve() {
+
         // execute FPIRLS_ for minimization of functional \norm{V^{-1/2}(y - \mu)}^2 + \lambda \int_D (Lf - u)^2
         fpirls_.compute();
-        // fpirls_ converged: store solution estimates
+
+        // fpirls_ converged: store solution estimates  
         W_ = fpirls_.solver().W();
         f_ = fpirls_.solver().f();
         g_ = fpirls_.solver().g();
@@ -80,6 +88,7 @@ class QSRPDE : public RegressionBase<QSRPDE<RegularizationType_>, Regularization
             V_ = fpirls_.solver().V();
         }
         invA_ = fpirls_.solver().invA();
+
         return;
     }
 
@@ -88,47 +97,73 @@ class QSRPDE : public RegressionBase<QSRPDE<RegularizationType_>, Regularization
     void fpirls_init() {
         // TODO: use a standardized solver (we can exploit the fpirls solver)
         // non-parametric and semi-parametric cases coincide here, since beta^(0) = 0
+
+        // nota: qui il fattore di normalizzazione rimane in quanto questo è il sistema SRPDE con 
+        //       pesi posti uguali all'identità.  
         SparseBlockMatrix<double, 2, 2> A(
-          -PsiTD() * Psi() / n_obs(), 2 * lambda_D() * R1().transpose(),   // NB: observe the 2 * here
+          -PsiTD() * Psi() / n_obs(), 2 * lambda_D() * R1().transpose(),   // NB: note the 2 * here
           lambda_D() * R1(),          lambda_D() * R0()                );
+
+
         if constexpr (is_space_time_separable<This>::value) {
-            A.block(0, 0) -= Base::lambda_T() * Kronecker(Base::P1(), Base::pde().mass());
+            A.block(0, 0) -= 2*Base::lambda_T() * Kronecker(Base::P1(), Base::pde().mass());
         }
         fdapde::SparseLU<SpMatrix<double>> invA;
         invA.compute(A);
+
         // assemble rhs of srpde problem
         DVector<double> b(A.rows());
         b.block(n_basis(), 0, n_basis(), 1) = lambda_D() * u();
         b.block(0, 0, n_basis(), 1) = -PsiTD() * y() / n_obs();
+
         mu_ = Psi(not_nan()) * (invA.solve(b)).head(n_basis());
+
     }
     // computes W^k = diag(1/(2*n*|y - X*beta - f|)) and y^k = y - (1-2*alpha)|y - X*beta - f|
     void fpirls_compute_step() {
         DVector<double> abs_res = (y() - mu_).array().abs();
-        // W_i = 1/(2*n*(abs_res[i] + tol_weights_)) if abs_res[i] < tol_weights, W_i = 1/(2*n*abs_res[i]) otherwise
+
+        // M ora che la loss di SRPDE è normalizzata, non c'è più il fattore 1/n nei pesi dato
+        //   che è inserito direttamente da SRPDE
+        // W_i = 1/(2*(abs_res[i] + tol_weights_)) if abs_res[i] < tol_weights, W_i = 1/(2*abs_res[i]) otherwise
         pW_ =
           (abs_res.array() < tol_weights_)
             .select(
-              (2 * n_obs() * (abs_res.array() + tol_weights_)).inverse(), (2 * n_obs() * abs_res.array()).inverse());
+              (2 * (abs_res.array() + tol_weights_)).inverse(), (2 * abs_res.array()).inverse());
         py_ = y() - (1 - 2. * alpha_) * abs_res;
+
+        for(std::size_t i=0; i<n_locs(); ++i){
+            if(Base::nan_mask()[i]){
+                py_(i)=0.; 
+                pW_(i)=0.; 
+            }
+        }
+
     }
     // updates mean vector \mu after WLS solution
     void fpirls_update_step(const DMatrix<double>& hat_f, [[maybe_unused]] const DMatrix<double>& hat_beta) {
         mu_ = hat_f;
     }
     // returns the data loss \norm{diag(W)^{-1/2}(y - \mu)}^2
-    double data_loss() const { return (pW_.cwiseSqrt().matrix().asDiagonal() * (py_ - mu_)).squaredNorm(); }
+    double data_loss() const { return (pW_.cwiseSqrt().matrix().asDiagonal() * (py_ - mu_)).squaredNorm() / n_obs(); }
+    // M aggiunto fattore di normalizzazione perchè pW_ non lo contiene
+
     const DVector<double>& py() const { return py_; }
     const DVector<double>& pW() const { return pW_; }
     const fdapde::SparseLU<SpMatrix<double>>& invA() const { return invA_; }
+    //const double& alpha() const { return alpha_; }
+
     // GCV support
     double norm(const DMatrix<double>& op1, const DMatrix<double>& op2) const {
+
         double result = 0;
         for (int i = 0; i < n_locs(); ++i) {
             if (!Base::masked_obs()[i]) result += pinball_loss(op2.coeff(i, 0) - op1.coeff(i, 0), std::pow(10, eps_));
         }
-        return std::pow(result, 2) / n_obs();
+    
+        return std::pow(result, 2);    // M tolto il fattore di normalizzazione in quanto è stato tolto anche da gcv.h
     }
+   
    private:
     double alpha_ = 0.5;      // quantile order (default to median)
     DVector<double> py_ {};   // y - (1-2*alpha)|y - X*beta - f|
@@ -141,11 +176,12 @@ class QSRPDE : public RegressionBase<QSRPDE<RegularizationType_>, Regularization
     double tol_ = 1e-6;     // fprils convergence tolerance
     double tol_weights_ = 1e-6;
 
-    double eps_ = -1e-1;   // pinball loss smoothing factor
+    double eps_ = -1.0;   // pinball loss smoothing factor
     double pinball_loss(double x, double eps) const {   // quantile check function
         return (alpha_ - 1) * x + eps * fdapde::log1pexp(x / eps);
     };
     double pinball_loss(double x) const { return 0.5 * std::abs(x) + (alpha_ - 0.5) * x; }   // non-smoothed pinball
+
 };
 
 }   // namespace models

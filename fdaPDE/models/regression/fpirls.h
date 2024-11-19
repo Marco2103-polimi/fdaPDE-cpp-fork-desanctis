@@ -93,6 +93,7 @@ template <typename Model_> class FPIRLS {
     }
     // sets an externally defined solver
     template <typename T> void set_solver(T&& solver) { solver_ = solver; }
+    void set_max_iter(const unsigned int iter) { max_iter_ = iter; }  // M 
     // getters
     std::size_t n_iter() const { return k_; }
     const SolverWrapper& solver() const { return solver_; }
