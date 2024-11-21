@@ -80,14 +80,14 @@ template <typename Model_> class FPIRLS {
             // solve weighted least square problem
             // \argmin_{\beta, f} [ \norm(W^{1/2}(y - X\beta - f_n))^2 + \lambda \int_D (Lf - u)^2 ]
             solver_.data().template insert<double>(OBSERVATIONS_BLK, m_->py());
-            solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW());
+            solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW());  
 	    // update solver and solve
 	    solver_.init();
             solver_.solve();
             m_->fpirls_update_step(solver_.fitted(), solver_.beta());   // model specific update step
             // update objective functional J = data_loss + f^\top * P_{\lambda}(f) * f 
             k_++; J_old = J_new;
-	    J_new = m_->data_loss() + m_->ftPf(m_->lambda(), solver_.f(), solver_.g());;
+	    J_new = m_->data_loss() + m_->ftPf(m_->lambda(), solver_.f(), solver_.g());
         }
         return;
     }

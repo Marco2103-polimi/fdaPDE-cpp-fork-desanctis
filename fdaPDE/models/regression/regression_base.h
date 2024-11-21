@@ -40,6 +40,7 @@ class RegressionBase :
     public SamplingBase<Model> {
    protected:
     DiagMatrix<double> W_ {};   // diagonal matrix of weights (implements possible heteroscedasticity)
+
     DMatrix<double> XtWX_ {};   // q x q dense matrix X^\top*W*X
     DMatrix<double> T_ {};      // T = \Psi^\top*Q*\Psi + P (required by GCV)
     Eigen::PartialPivLU<DMatrix<double>> invXtWX_ {};   // factorization of the dense q x q matrix XtWX_.
@@ -155,10 +156,13 @@ class RegressionBase :
         // initialize empty masks
         if (!y_mask_.size()) y_mask_.resize(Base::n_locs());
         if (!nan_mask_.size()) nan_mask_.resize(Base::n_locs());
+
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
+            
             W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
             model().runtime().set(runtime_status::require_W_update);
+
         } else if (is_empty(W_)) {
             // default to homoskedastic observations
             W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
@@ -186,6 +190,7 @@ class RegressionBase :
     void correct_psi() {
         if (masked_obs().any()) B_ = (~masked_obs().repeat(1, n_basis())).select(Psi(not_nan()));
     }
+
 };
 
 }   // namespace models

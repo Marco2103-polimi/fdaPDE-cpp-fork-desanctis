@@ -28,7 +28,7 @@ template <typename Model> class ModelBase;                             // base c
 template <typename Model> class SpaceOnlyBase;                         // base class for any spatial model
 template <typename Model, typename PenaltyType> class SpaceTimeBase;   // base class for any spatio-temporal model
 template <typename Model> class SpaceTimeSeparableBase;                // spatio-temporal, separable regularization
-template <typename Model> class SpaceTimeParabolicBase;                // spatio-temporal, parabolic regularization
+template <typename Model> class SpaceTimeParabolicBase;                // spatio-temporal, parabolic regularization             
 
 // empty classes for tagging regularization types
 struct SpaceOnly { };

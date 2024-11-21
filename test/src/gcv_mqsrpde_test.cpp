@@ -560,8 +560,11 @@ TEST(gcv_msqrpde_test2, pde_semiparametric_samplingatlocations_spaceonly_gridexa
                     model_gcv.set_eps_power(-1.0); 
                 }
                 
+                std::cout << "set data" << std::endl;
                 model_gcv.set_data(df);
+                std::cout << "init model" << std::endl; 
                 model_gcv.init();
+                std::cout << "end init model" << std::endl; 
 
                 // define GCV function and grid of \lambda_D values
                 auto GCV = model_gcv.gcv<ExactEDF>();
