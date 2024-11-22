@@ -37,12 +37,15 @@
     IMPORT_MODEL_SYMBOLS                                                                                               \
     using Base::y;              /* vector of observations y = [y_1 ... y_n] */                                         \
     using Base::n_obs;          /* number of observations n */                                                         \
-    using Base::W;              /* matrix of observation weights W_ = diag[W_1 ... W_n] */                             \
+    using Base::W;              /* matrix of observation weights W_ (sparse) */                             \
     using Base::q;              /* number of covariates */                                                             \
-    using Base::X;              /* n x q design matrix X = [X_1 ... X_q] */                                            \
+    using Base::p;              /* number of random covariates */                                                             \
+    using Base::X;              /* n x q design matrix X = [X_1 ... X_q] */                                           \
+    using Base::Z;              /* n x p design matrix of random effects Z = diag(Z_1 ... Z_q) */                                            \
     using Base::XtWX;           /* q x q dense matrix X^T*W*X */                                                       \
     using Base::invXtWX;        /* partialPivLU factorization of X^T*W*X */                                            \
     using Base::has_covariates; /* true if the model is semi-parametric */                                             \
+    using Base::has_random_covariates; /* true if the model has random effects */                                             \
     using Base::has_weights;    /* true if heteroscedastic observations are assumed */                                 \
     using Base::lmbQ;           /* efficient left multiplication by Q */                                               \
     using Base::f_;             /* estimate of the nonparametric part of the model */                                  \
@@ -68,6 +71,7 @@
 #define OBSERVATIONS_BLK  "OBSERVATIONS"    // observations
 #define INDEXES_BLK       "INDEXES"         // observation indices
 #define DESIGN_MATRIX_BLK "DESIGN_MATRIX"   // covariates
+#define DESIGN_MATRIX_RANDOM_BLK "RANDOM_DESIGN_MATRIX"   // M random covariates
 #define WEIGHTS_BLK       "WEIGHTS"         // weights for heteroskedastic observations
 
 #endif   // __MODEL_MACROS_H__

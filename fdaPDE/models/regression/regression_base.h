@@ -39,7 +39,29 @@ class RegressionBase :
     public select_regularization_base<Model, RegularizationType>::type,
     public SamplingBase<Model> {
    protected:
-    DiagMatrix<double> W_ {};   // diagonal matrix of weights (implements possible heteroscedasticity)
+    // DiagMatrix<double> W_ {};   // diagonal matrix of weights (implements possible heteroscedasticity)
+
+    // M 
+    // DMatrix<double> W_ {};   --> NO: (1) è inefficiente, (2): andrebbe cambiata il tipo di matrice di srpde 
+
+    // M 
+    // unsigned int num_groups_ = n_obs();   
+    // SparseBlockMatrix<double, num_groups_, num_groups_> W_ {};  // M: from diagonal to sparse block matrix 
+    // num_groups_ = n, i.e. W_ non-block matrix by default. For Mixed-Effects models, num_groups_ is the 
+    // number of groups we have in the model 
+    // --> NO, va deciso a compile time
+
+    // // M:
+    // // Conditionally define the type of weights based on has_dense_weights
+    // using WeightsType = typename std::conditional<
+    //     has_dense_weights<Model>::value,
+    //     SpMatrix<double>,  // --> non block, tanto per i pesi non lo sfruttiamo il fatto che sia a blocchi e almeno non dobbiamo sapere a compile time il numero dei gruppi
+    //     DiagMatrix<double>        // Diagonal matrix of weights
+    // >::type;
+    // WeightsType W_ {}; // Declare W_ with the selected type
+
+    // M 
+    SpMatrix<double> W_;   // inefficient for other models, but ok  
 
     DMatrix<double> XtWX_ {};   // q x q dense matrix X^\top*W*X
     DMatrix<double> T_ {};      // T = \Psi^\top*Q*\Psi + P (required by GCV)
@@ -86,7 +108,19 @@ class RegressionBase :
         return df_.has_block(DESIGN_MATRIX_BLK) ? df_.template get<double>(DESIGN_MATRIX_BLK).cols() : 0;
     }
     const DMatrix<double>& X() const { return df_.template get<double>(DESIGN_MATRIX_BLK); }   // covariates
-    const DiagMatrix<double>& W() const { return W_; }                                         // observations' weights
+    // M
+    int p() const {
+        return df_.has_block(DESIGN_MATRIX_RANDOM_BLK) ? df_.template get<double>(DESIGN_MATRIX_RANDOM_BLK).cols() : 0;
+    } 
+    const DMatrix<double>& Z() const { return df_.template get<double>(DESIGN_MATRIX_RANDOM_BLK); }   // covariates of random effects
+
+
+
+    // const DiagMatrix<double>& W() const { return W_; }                                         // observations' weights
+    const SpMatrix<double>& W() const { return W_; } // M 
+    // const SparseBlockMatrix<double>& W() const { return W_; } 
+    // const DMatrix<double>& W() const { return W_; } 
+
     const DMatrix<double>& XtWX() const { return XtWX_; }
     const Eigen::PartialPivLU<DMatrix<double>>& invXtWX() const { return invXtWX_; }
     const DVector<double>& f() const { return f_; };         // estimate of spatial field
@@ -102,6 +136,7 @@ class RegressionBase :
     const SpMatrix<double>& Psi() const { return !is_empty(B_) ? B_ : Psi(not_nan()); }
     auto PsiTD() const { return !is_empty(B_) ? B_.transpose() * D() : Psi(not_nan()).transpose() * D(); }
     bool has_covariates() const { return q() != 0; }                 // true if the model has a parametric part
+    bool has_random_covariates() const { return p() != 0; }          // M: true if the model has random effects 
     bool has_weights() const { return df_.has_block(WEIGHTS_BLK); }  // true if heteroskedastic observation are provided
     bool has_nan() const { return n_nan_ != 0; }                     // true if there are missing data
     // setters
@@ -153,24 +188,71 @@ class RegressionBase :
     }
     // data dependent regression models' initialization logic
     void analyze_data() {
+        std::cout << "analyze data here 0" << std::endl; 
         // initialize empty masks
         if (!y_mask_.size()) y_mask_.resize(Base::n_locs());
+        std::cout << "analyze data here 1" << std::endl;
         if (!nan_mask_.size()) nan_mask_.resize(Base::n_locs());
+        std::cout << "analyze data here 2" << std::endl;
+
+        // M 
+        W_.resize(n_obs(), n_obs()); 
+        std::cout << "analyze data W_ resized" << std::endl;
+        std::cout << "dim W_ = " << W_.rows() << ";" << W_.cols() << std::endl;
 
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
+
+            std::cout << "analyze data here 3" << std::endl;
             
-            W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            // W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            // model().runtime().set(runtime_status::require_W_update);
+
+            // M 
+            std::cout << "analyze data here 3.1" << std::endl;
+            W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).sparseView(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            std::cout << "dim W in the if" << W_.rows() << ";" << W_.cols() << std::endl; 
+            
+            std::cout << "analyze data here 4" << std::endl;
             model().runtime().set(runtime_status::require_W_update);
+            std::cout << "analyze data here 5" << std::endl;
+
+            // // M: 
+            // if constexpr (has_dense_weights<Model>::value){
+            //     W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            // } else{
+            //     W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss;  
+            // }
+            // model().runtime().set(runtime_status::require_W_update);
 
         } else if (is_empty(W_)) {
-            // default to homoskedastic observations
-            W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            // // default to homoskedastic observations
+            // W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            
+            // // M 
+            // if constexpr (has_dense_weights<Model>::value){
+            //     W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs());
+            // } else{
+            //     W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal();
+            // }
+
+            std::cout << "analyze data here else 0" << std::endl;
+            // M
+            W_.setIdentity(); 
+            W_ *= (1.0 / Base::n_locs());
+            std::cout << "dim W " << W_.rows() << ";" << W_.cols() << std::endl;
+
+            std::cout << "analyze data here else 1" << std::endl;
         }
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(WEIGHTS_BLK))) {
+            std::cout << "analyze data here 6" << std::endl;
+            std::cout << "dim X " << X().rows() << ";" << X().cols() << std::endl; 
+            std::cout << "dim W " << W_.rows() << ";" << W_.cols() << std::endl; 
             XtWX_ = X().transpose() * W_ * X();
+            std::cout << "analyze data here 7" << std::endl;
             invXtWX_ = XtWX_.partialPivLu();
+            std::cout << "analyze data here 8" << std::endl;
         }
         // derive missingness pattern from observations vector (if changed)
         if (df_.is_dirty(OBSERVATIONS_BLK)) {

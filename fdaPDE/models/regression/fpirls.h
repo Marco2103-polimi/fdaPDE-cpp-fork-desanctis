@@ -47,25 +47,32 @@ template <typename Model_> class FPIRLS {
    public:
     // constructor
     FPIRLS() = default;
-    FPIRLS(Model* m, double tolerance, std::size_t max_iter) : m_(m), tolerance_(tolerance), max_iter_(max_iter) {};
+    FPIRLS(Model* m, double tolerance, std::size_t max_iter) : m_(m), tolerance_(tolerance), max_iter_(max_iter) {std::cout << "calling fpirls constructor" << std::endl;};
   
     // initialize internal smoothing solver
     void init() {
+        std::cout << "fpirls init here -1" << std::endl; 
         if (!solver_) {   // default solver initialization
             using SolverType = typename std::conditional<
               is_space_only<Model>::value, SRPDE,
               STRPDE<typename Model::RegularizationType, fdapde::monolithic> >::type;
             if constexpr (is_space_only<Model_>::value || is_space_time_parabolic<Model_>::value) {
+                std::cout << "fpirls init here 0" << std::endl; 
                 solver_ = SolverType(m_->pde(), m_->sampling());
+                std::cout << "fpirls init here 1" << std::endl; 
             } else {   // space-time separable
                 solver_ = SolverType(m_->pde(), m_->time_pde(), m_->sampling());
                 solver_.set_temporal_locations(m_->time_locs());
             }
             // solver initialization
+            std::cout << "fpirls init set locations" << std::endl; 
             solver_.set_spatial_locations(m_->locs());
+            std::cout << "fpirls init set data" << std::endl;
             solver_.set_data(m_->data());
         }
+        std::cout << "fpirls init set lambda" << std::endl;
         solver_.set_lambda(m_->lambda());     // derive smoothing level
+        std::cout << "fpirls init set mask" << std::endl;
         solver_.set_mask(m_->masked_obs());   // derive missing and masking data pattern
     }
     // executes the FPIRLS algorithm
@@ -80,7 +87,9 @@ template <typename Model_> class FPIRLS {
             // solve weighted least square problem
             // \argmin_{\beta, f} [ \norm(W^{1/2}(y - X\beta - f_n))^2 + \lambda \int_D (Lf - u)^2 ]
             solver_.data().template insert<double>(OBSERVATIONS_BLK, m_->py());
+            std::cout << "in fpirls compute: inserting weights in dataframe..." << std::endl; 
             solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW());  
+            std::cout << "in fpirls compute: end of insertion of the weights in dataframe!" << std::endl; 
 	    // update solver and solve
 	    solver_.init();
             solver_.solve();
@@ -89,6 +98,7 @@ template <typename Model_> class FPIRLS {
             k_++; J_old = J_new;
 	    J_new = m_->data_loss() + m_->ftPf(m_->lambda(), solver_.f(), solver_.g());
         }
+        std::cout << "end fpirls" << std::endl;
         return;
     }
     // sets an externally defined solver
