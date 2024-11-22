@@ -96,7 +96,7 @@ class RegressionBase :
     // space-only and space-time parabolic constructor (they require only one PDE)
     RegressionBase(const Base::PDE& pde, Sampling s)
         requires(is_space_only<Model>::value || is_space_time_parabolic<Model>::value)
-        : Base(pde), SamplingBase<Model>(s) {};
+        : Base(pde), SamplingBase<Model>(s) { std::cout << "calling RegressionBase constructor..." << std::endl; };
     // space-time separable constructor
     RegressionBase(const Base::PDE& space_penalty, const Base::PDE& time_penalty, Sampling s)
         requires(is_space_time_separable<Model>::value)
@@ -105,11 +105,13 @@ class RegressionBase :
     // getters
     const DMatrix<double>& y() const { return df_.template get<double>(OBSERVATIONS_BLK); }   // observation vector y
     int q() const {
+        std::cout << "calling q() in regression base" << std::endl; 
         return df_.has_block(DESIGN_MATRIX_BLK) ? df_.template get<double>(DESIGN_MATRIX_BLK).cols() : 0;
     }
     const DMatrix<double>& X() const { return df_.template get<double>(DESIGN_MATRIX_BLK); }   // covariates
     // M
     int p() const {
+        std::cout << "calling p() in regression base" << std::endl; 
         return df_.has_block(DESIGN_MATRIX_RANDOM_BLK) ? df_.template get<double>(DESIGN_MATRIX_RANDOM_BLK).cols() : 0;
     } 
     const DMatrix<double>& Z() const { return df_.template get<double>(DESIGN_MATRIX_RANDOM_BLK); }   // covariates of random effects
@@ -137,7 +139,10 @@ class RegressionBase :
     auto PsiTD() const { return !is_empty(B_) ? B_.transpose() * D() : Psi(not_nan()).transpose() * D(); }
     bool has_covariates() const { return q() != 0; }                 // true if the model has a parametric part
     bool has_random_covariates() const { return p() != 0; }          // M: true if the model has random effects 
-    bool has_weights() const { return df_.has_block(WEIGHTS_BLK); }  // true if heteroskedastic observation are provided
+    bool has_weights() const { 
+        std::cout << "calling has_weights in regression base" << std::endl; 
+        return df_.has_block(WEIGHTS_BLK);
+    }  // true if heteroskedastic observation are provided
     bool has_nan() const { return n_nan_ != 0; }                     // true if there are missing data
     // setters
     void set_mask(const BinaryVector<fdapde::Dynamic>& mask) {
