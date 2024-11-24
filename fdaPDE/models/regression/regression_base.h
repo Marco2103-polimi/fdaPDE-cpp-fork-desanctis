@@ -250,7 +250,7 @@ class RegressionBase :
             std::cout << "analyze data here else 1" << std::endl;
         }
         // compute q x q dense matrix X^\top*W*X and its factorization
-        if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(WEIGHTS_BLK))) {
+        if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(DESIGN_MATRIX_RANDOM_BLK) || df_.is_dirty(WEIGHTS_BLK))) { // M added check for random effects 
             std::cout << "analyze data here 6" << std::endl;
             std::cout << "dim X " << X().rows() << ";" << X().cols() << std::endl; 
             std::cout << "dim W " << W_.rows() << ";" << W_.cols() << std::endl; 

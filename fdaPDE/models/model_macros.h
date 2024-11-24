@@ -68,10 +68,10 @@
         throw std::logic_error("bad BlockFrame, model without observations is ill-formed");
 
 // standardized definitions for model BlockFrame's blocks
-#define OBSERVATIONS_BLK  "OBSERVATIONS"    // observations
-#define INDEXES_BLK       "INDEXES"         // observation indices
-#define DESIGN_MATRIX_BLK "DESIGN_MATRIX"   // covariates
-#define DESIGN_MATRIX_RANDOM_BLK "RANDOM_DESIGN_MATRIX"   // M random covariates
-#define WEIGHTS_BLK       "WEIGHTS"         // weights for heteroskedastic observations
+#define OBSERVATIONS_BLK            "OBSERVATIONS"    // observations
+#define INDEXES_BLK                 "INDEXES"         // observation indices
+#define DESIGN_MATRIX_BLK           "DESIGN_MATRIX"   // covariates
+#define DESIGN_MATRIX_RANDOM_BLK    "RANDOM_DESIGN_MATRIX"   // M random covariates
+#define WEIGHTS_BLK                 "WEIGHTS"         // weights for heteroskedastic observations
 
 #endif   // __MODEL_MACROS_H__
