@@ -319,10 +319,10 @@ double RMSE_metric(DVector<double> v1, DVector<double> v2){
 TEST(gcv_msqrpde_test2, pde_semiparametric_samplingatlocations_spaceonly_gridexact) {
 
     // path test  
-    const std::string trial_number = "4"; 
+    const std::string trial_number = "5"; 
     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MQSRPDE/Tests/Test_2/trial_" + trial_number; 
 
-    const unsigned int n_sim = 1;
+    const unsigned int n_sim = 20;
     const unsigned int sim_start = 1; 
     const std::string gcv_refinement = "fine";    // "lasco" "fine"
     double lambdas_step; 
@@ -412,12 +412,12 @@ TEST(gcv_msqrpde_test2, pde_semiparametric_samplingatlocations_spaceonly_gridexa
         for(double x = -7.5; x <= -3.0; x += lambdas_step) lambdas_5.push_back(std::pow(10, x)); 
 
         for(double x = -7.5; x <= -3.5; x += lambdas_step) lambdas_10.push_back(std::pow(10, x)); 
-        for(double x = -5.5; x <= -3.0; x += lambdas_step) lambdas_25.push_back(std::pow(10, x));
+        for(double x = -5.5; x <= -1.0; x += lambdas_step) lambdas_25.push_back(std::pow(10, x));
 
-        for(double x = -5.5; x <= -3.5; x += lambdas_step) lambdas_50.push_back(std::pow(10, x)); 
+        for(double x = -5.5; x <= -1.0; x += lambdas_step) lambdas_50.push_back(std::pow(10, x)); 
 
-        for(double x = -5.0; x <= -3.5; x += lambdas_step) lambdas_75.push_back(std::pow(10, x)); 
-        for(double x = -6.0; x <= -3.0; x += lambdas_step) lambdas_90.push_back(std::pow(10, x));  
+        for(double x = -7.0; x <= -2.0; x += lambdas_step) lambdas_75.push_back(std::pow(10, x)); 
+        for(double x = -8.0; x <= -3.0; x += lambdas_step) lambdas_90.push_back(std::pow(10, x));  
 
         for(double x = -7.5; x <= -3.0; x += lambdas_step) lambdas_91.push_back(std::pow(10, x));
         for(double x = -7.5; x <= -4.0; x += lambdas_step) lambdas_92.push_back(std::pow(10, x));
@@ -475,10 +475,7 @@ TEST(gcv_msqrpde_test2, pde_semiparametric_samplingatlocations_spaceonly_gridexa
             // GCV:
             for(auto lambda_selection_type : lambda_selection_types){
                 
-                // std::string solutions_path_gcv = R_path + "/data/simulations/sim_" + std::to_string(sim) + "/single_est" + pde_type + "/" + lambda_selection_type; 
-                // std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/single" + "/" + lambda_selection_type + "/" + gcv_refinement; 
-                std::string solutions_path_gcv = R_path + "/temp/single"; 
-
+                std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/single" + "/" + lambda_selection_type + "/" + gcv_refinement; 
 
                 QSRPDE<SpaceOnly> model_gcv(problem, Sampling::pointwise, alpha);
                 model_gcv.set_spatial_locations(loc);

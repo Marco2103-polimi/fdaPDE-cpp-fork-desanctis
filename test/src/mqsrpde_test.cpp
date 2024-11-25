@@ -315,10 +315,10 @@ using fdapde::testing::read_csv;
 TEST(mqsrpde_test2, laplacian_semiparametric_samplingatlocations) {
     
     // path test  
-    const std::string trial_number = "4"; 
+    const std::string trial_number = "5"; 
     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MQSRPDE/Tests/Test_2/trial_" + trial_number;
 
-    const unsigned int n_sim = 1; 
+    const unsigned int n_sim = 20; 
     const unsigned int sim_start = 1; 
     const std::string gcv_refinement = "fine"; 
 
@@ -388,8 +388,8 @@ TEST(mqsrpde_test2, laplacian_semiparametric_samplingatlocations) {
                 // load data from .csv files
                 DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
                 unsigned int idx = 0; 
-                // std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/single" +  "/" + lambda_selection + "/" + gcv_refinement; 
-                std::string solution_path = R_path + "/temp/single"; 
+                std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/single" +  "/" + lambda_selection + "/" + gcv_refinement; 
+
 
 
                 for(double alpha : alphas){
@@ -470,13 +470,9 @@ TEST(mqsrpde_test2, laplacian_semiparametric_samplingatlocations) {
                 model.set_max_iter(max_it_convergence_loop); 
                 model.set_gamma_init(gamma_value); 
 
-                //std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/multiple_" + gamma_str + "/" + lambda_selection + "/" + gcv_refinement;
-                //std::string lambda_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/single" + "/" + lambda_selection + "/" + gcv_refinement; 
-
-                std::string solution_path = R_path + "/temp/multiple_" + gamma_str; 
-                std::string lambda_path = R_path + "/temp/single"; 
-
-
+                std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/multiple_" + gamma_str + "/" + lambda_selection + "/" + gcv_refinement;
+                std::string lambda_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/single" + "/" + lambda_selection + "/" + gcv_refinement; 
+                
                 // use optimal lambda to avoid possible numerical issues
                 DMatrix<double> lambdas;
                 DVector<double> lambdas_temp; 

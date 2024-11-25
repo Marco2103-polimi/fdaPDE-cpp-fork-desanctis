@@ -67,9 +67,7 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
         if (runtime().query(runtime_status::require_W_update)) {
             // adjust north-west block of matrix A_ only
             A_.block(0, 0) = -PsiTD() * W() * Psi();
-            std::cout << "srpde init_model invA" << std::endl; 
             invA_.compute(A_);
-            std::cout << "srpde init_model end invA" << std::endl; 
             return;
         }
     }
