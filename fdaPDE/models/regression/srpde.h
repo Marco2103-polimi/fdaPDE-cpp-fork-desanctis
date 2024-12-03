@@ -54,6 +54,17 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
 
     void init_model() {
         if (runtime().query(runtime_status::is_lambda_changed)) {
+             
+            // std::cout << "here 0 in init_model srpde in IF1" << std::endl;
+            // if (W().nonZeros() == 0) {
+            //     std::cout << "The sparse matrix is empty (no non-zero elements)." << std::endl;
+            // } else {
+            //     std::cout << "The sparse matrix has non-zero elements." << std::endl;
+            // }
+            // std::cout << "range W() in init_model srpde:" << (Eigen::SparseMatrix<double>(W())).coeffs().minCoeff() << ";" << (Eigen::SparseMatrix<double>(W())).coeffs().maxCoeff() << std::endl; 
+            
+            std::cout << "lambda_D() in srpde = " << std::setprecision(16) << lambda_D() << std::endl;
+            
             // assemble system matrix for nonparameteric part
             A_ = SparseBlockMatrix<double, 2, 2>(
               -PsiTD() * W() * Psi(), lambda_D() * R1().transpose(),
@@ -65,11 +76,23 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
             return;
         }
         if (runtime().query(runtime_status::require_W_update)) {
+            std::cout << "here 0 in init_model srpde in IF2" << std::endl;
+            if (W().nonZeros() == 0) {
+                std::cout << "The sparse matrix is empty (no non-zero elements)." << std::endl;
+            } else {
+                std::cout << "The sparse matrix has non-zero elements." << std::endl;
+            }
+            std::cout << "range W() in init_model srpde:" << (Eigen::SparseMatrix<double>(W())).coeffs().minCoeff() << ";" << (Eigen::SparseMatrix<double>(W())).coeffs().maxCoeff() << std::endl; 
+            std::cout << "dim W() = " << W().rows() << ";" << W().cols() << std::endl;
+            std::cout << "dim Psi() = " << Psi().rows() << ";" << Psi().cols() << std::endl;
+            std::cout << "dim PsiTD() = " << PsiTD().rows() << ";" << PsiTD().cols() << std::endl;
+            std::cout << "dim A_.block(0, 0) = " << A_.block(0, 0).rows() << ";" << A_.block(0, 0).cols() << std::endl;
+                        
             // adjust north-west block of matrix A_ only
             A_.block(0, 0) = -PsiTD() * W() * Psi();
-            std::cout << "srpde init_model invA" << std::endl; 
+            std::cout << "here 1 in init_model srpde in IF2" << std::endl;
             invA_.compute(A_);
-            std::cout << "srpde init_model end invA" << std::endl; 
+            std::cout << "here 2 in init_model srpde in IF2" << std::endl;
             return;
         }
     }
@@ -83,6 +106,7 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
             sol = invA_.solve(b_);
             f_ = sol.head(n_basis());
         } else {   // parametric case
+            std::cout << "srpde solve parametric case" << std::endl; 
             // update rhs of SR-PDE linear system
             b_.block(0, 0, n_basis(), 1) = -PsiTD() * lmbQ(y());   // -\Psi^T*D*Q*z
             // matrices U and V for application of woodbury formula

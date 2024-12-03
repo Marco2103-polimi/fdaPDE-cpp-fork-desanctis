@@ -80,6 +80,7 @@ class RegressionBase :
     DVector<double> f_ {};      // estimate of the spatial field (1 x N vector)
     DVector<double> g_ {};      // PDE misfit
     DVector<double> beta_ {};   // estimate of the coefficient vector (1 x q vector)
+    DVector<double> random_part_ {};   // estimate of the random part of the fitted vector (1 x n vector). Note: it has the global indexing
    public:
     using Base = typename select_regularization_base<Model, RegularizationType>::type;
     using Base::df_;                    // BlockFrame for problem's data storage
@@ -96,7 +97,7 @@ class RegressionBase :
     // space-only and space-time parabolic constructor (they require only one PDE)
     RegressionBase(const Base::PDE& pde, Sampling s)
         requires(is_space_only<Model>::value || is_space_time_parabolic<Model>::value)
-        : Base(pde), SamplingBase<Model>(s) { std::cout << "calling RegressionBase constructor..." << std::endl; };
+        : Base(pde), SamplingBase<Model>(s) { };
     // space-time separable constructor
     RegressionBase(const Base::PDE& space_penalty, const Base::PDE& time_penalty, Sampling s)
         requires(is_space_time_separable<Model>::value)
@@ -104,21 +105,15 @@ class RegressionBase :
 
     // getters
     const DMatrix<double>& y() const { return df_.template get<double>(OBSERVATIONS_BLK); }   // observation vector y
-    int q() const {
-        std::cout << "calling q() in regression base" << std::endl; 
-        return df_.has_block(DESIGN_MATRIX_BLK) ? df_.template get<double>(DESIGN_MATRIX_BLK).cols() : 0;
-    }
-    const DMatrix<double>& X() const { return df_.template get<double>(DESIGN_MATRIX_BLK); }   // covariates
+    int q() const { return df_.has_block(DESIGN_MATRIX_BLK) ? df_.template get<double>(DESIGN_MATRIX_BLK).cols() : 0; }
+    const DMatrix<double>& X() const { return df_.template get<double>(DESIGN_MATRIX_BLK);  }   // covariates
     // M
-    int p() const {
-        std::cout << "calling p() in regression base" << std::endl; 
-        return df_.has_block(DESIGN_MATRIX_RANDOM_BLK) ? df_.template get<double>(DESIGN_MATRIX_RANDOM_BLK).cols() : 0;
-    } 
+    int p() const { return df_.has_block(DESIGN_MATRIX_RANDOM_BLK) ? df_.template get<double>(DESIGN_MATRIX_RANDOM_BLK).cols() : 0; } 
     const DMatrix<double>& Z() const { return df_.template get<double>(DESIGN_MATRIX_RANDOM_BLK); }   // covariates of random effects
 
 
 
-    // const DiagMatrix<double>& W() const { return W_; }                                         // observations' weights
+    // const DiagMatrix<double>& W() const { return W_; }         // observations' weights
     const SpMatrix<double>& W() const { return W_; } // M 
     // const SparseBlockMatrix<double>& W() const { return W_; } 
     // const DMatrix<double>& W() const { return W_; } 
@@ -128,6 +123,8 @@ class RegressionBase :
     const DVector<double>& f() const { return f_; };         // estimate of spatial field
     const DVector<double>& g() const { return g_; };         // PDE misfit
     const DVector<double>& beta() const { return beta_; };   // estimate of regression coefficients
+    const DVector<double>& random_part() const { return random_part_; };  // estimate of the random part of the fitted vector )
+
     const BinaryVector<fdapde::Dynamic>& nan_mask() const { return nan_mask_; }
     BinaryVector<fdapde::Dynamic> masked_obs() const { return y_mask_ | nan_mask_; }
     int n_obs() const { return y().rows() - masked_obs().count(); }   // number of (active) observations
@@ -139,10 +136,7 @@ class RegressionBase :
     auto PsiTD() const { return !is_empty(B_) ? B_.transpose() * D() : Psi(not_nan()).transpose() * D(); }
     bool has_covariates() const { return q() != 0; }                 // true if the model has a parametric part
     bool has_random_covariates() const { return p() != 0; }          // M: true if the model has random effects 
-    bool has_weights() const { 
-        std::cout << "calling has_weights in regression base" << std::endl; 
-        return df_.has_block(WEIGHTS_BLK);
-    }  // true if heteroskedastic observation are provided
+    bool has_weights() const { return df_.has_block(WEIGHTS_BLK); }  // true if heteroskedastic observation are provided
     bool has_nan() const { return n_nan_ != 0; }                     // true if there are missing data
     // setters
     void set_mask(const BinaryVector<fdapde::Dynamic>& mask) {
@@ -152,6 +146,12 @@ class RegressionBase :
             y_mask_ = mask;   // mask[i] == true, removes the contribution of the i-th observation from fit
         }
     }
+    void set_random_part(const double& coeff, const unsigned int& ind) { 
+        if(random_part_.size() == 0) random_part_.resize(Base::n_locs());
+        random_part_(ind) = coeff;
+    }; 
+
+
     // efficient left multiplication by matrix Q = W(I - X*(X^\top*W*X)^{-1}*X^\top*W)
     DMatrix<double> lmbQ(const DMatrix<double>& x) const {
         if (!has_covariates()) return W_ * x;
@@ -171,6 +171,9 @@ class RegressionBase :
     double ftPf(const SVector<Base::n_lambda>& lambda, const DVector<double>& f, const DVector<double>& g) const {
         fdapde_assert(f.rows() == R0().rows() && g.rows() == R0().rows());
         if constexpr (!is_space_time_separable<Model>::value) {
+            // std::cout << "ftPf computation... in regression base" << std::endl; 
+            // std::cout << "lambda[0]=" << lambda[0] << std::endl; 
+            // std::cout << "g.dot(R0() * g) =" << g.dot(R0() * g) << std::endl; 
             return lambda[0] * g.dot(R0() * g);   // \int_D (Lf-u)^2 = g^\top*R_0*g = f^\top*(R_1^\top*(R_0)^{-1}*R_1)*f
         } else {
             return lambda[0] * g.dot(R0() * g) + lambda[1] * f.dot(Base::PT() * f);
@@ -193,34 +196,25 @@ class RegressionBase :
     }
     // data dependent regression models' initialization logic
     void analyze_data() {
-        std::cout << "analyze data here 0" << std::endl; 
         // initialize empty masks
         if (!y_mask_.size()) y_mask_.resize(Base::n_locs());
-        std::cout << "analyze data here 1" << std::endl;
         if (!nan_mask_.size()) nan_mask_.resize(Base::n_locs());
-        std::cout << "analyze data here 2" << std::endl;
-
-        // M 
-        W_.resize(n_obs(), n_obs()); 
-        std::cout << "analyze data W_ resized" << std::endl;
-        std::cout << "dim W_ = " << W_.rows() << ";" << W_.cols() << std::endl;
 
         // compute q x q dense matrix X^\top*W*X and its factorization
+        std::cout << "in regression base, has_weights()=" << has_weights() << std::endl;
+        std::cout << "in regression base, df_.is_dirty(WEIGHTS_BLK)=" << df_.is_dirty(WEIGHTS_BLK) << std::endl;
         if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
 
-            std::cout << "analyze data here 3" << std::endl;
-            
+            std::cout << "analyze data in IF" << std::endl; 
+     
             // W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
             // model().runtime().set(runtime_status::require_W_update);
 
             // M 
-            std::cout << "analyze data here 3.1" << std::endl;
-            W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).sparseView(); // M aggiunta costante a causa della rinormalizzazione della loss; 
-            std::cout << "dim W in the if" << W_.rows() << ";" << W_.cols() << std::endl; 
-            
-            std::cout << "analyze data here 4" << std::endl;
+            W_.resize(n_obs(), n_obs());   // ATT: dentro if-else, l'altrimenti quando controlla se fai resize fuori il check "se vuota" gli rida' true
+            W_ = df_.template get<double>(WEIGHTS_BLK).sparseView(); // M tolta costante rinormalizzazione per confronto con Melchionda;                      
+            std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
             model().runtime().set(runtime_status::require_W_update);
-            std::cout << "analyze data here 5" << std::endl;
 
             // // M: 
             // if constexpr (has_dense_weights<Model>::value){
@@ -231,6 +225,9 @@ class RegressionBase :
             // model().runtime().set(runtime_status::require_W_update);
 
         } else if (is_empty(W_)) {
+
+            std::cout << "analyze data in ELSE" << std::endl; 
+
             // // default to homoskedastic observations
             // W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
             
@@ -241,27 +238,21 @@ class RegressionBase :
             //     W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal();
             // }
 
-            std::cout << "analyze data here else 0" << std::endl;
             // M
+            W_.resize(n_obs(), n_obs()); 
             W_.setIdentity(); 
-            W_ *= (1.0 / Base::n_locs());
-            std::cout << "dim W " << W_.rows() << ";" << W_.cols() << std::endl;
+            std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
 
-            std::cout << "analyze data here else 1" << std::endl;
+            // W_ *= (1.0 / Base::n_locs());  // ATT commentato per confronto con Melchionda (tolto rinormalizzazione) 
         }
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(DESIGN_MATRIX_RANDOM_BLK) || df_.is_dirty(WEIGHTS_BLK))) { // M added check for random effects 
-            std::cout << "analyze data here 6" << std::endl;
-            std::cout << "dim X " << X().rows() << ";" << X().cols() << std::endl; 
-            std::cout << "dim W " << W_.rows() << ";" << W_.cols() << std::endl; 
             XtWX_ = X().transpose() * W_ * X();
-            std::cout << "analyze data here 7" << std::endl;
             invXtWX_ = XtWX_.partialPivLu();
-            std::cout << "analyze data here 8" << std::endl;
         }
         // derive missingness pattern from observations vector (if changed)
         if (df_.is_dirty(OBSERVATIONS_BLK)) {
-            n_nan_ = 0;
+            n_nan_ = 0; 
             for (int i = 0; i < df_.template get<double>(OBSERVATIONS_BLK).size(); ++i) {
                 if (std::isnan(y()(i, 0))) {   // requires -ffast-math compiler flag to be disabled
                     nan_mask_.set(i);

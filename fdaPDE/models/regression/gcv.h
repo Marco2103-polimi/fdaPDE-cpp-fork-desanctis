@@ -71,8 +71,22 @@ class GCV {
         std::size_t n = model_.n_obs();   // number of observations
         double dor = n - (q + trS);       // residual degrees of freedom
         edfs_.emplace_back(q + trS);      // store equivalent degrees of freedom
+        
         // return gcv at point
-        double gcv_value = model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2);  // M: tolta costante a causa della rinormalizzazione loss 
+        // double gcv_value = model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2);  // M: tolta costante a causa della rinormalizzazione loss 
+        
+        std::cout << "in gcv_impl, here 0" << std::endl;
+        // M per random effect
+        DVector<double> fit = model_.fitted();   
+        std::cout << "in gcv_impl, here 1" << std::endl;
+        std::cout << "model_.has_random_covariates() = " << model_.has_random_covariates() << std::endl;
+        if(model_.has_random_covariates()){
+            fit += model_.random_part(); 
+        }
+        std::cout << "in gcv_impl, here 2" << std::endl;
+        double gcv_value = (n / std::pow(dor, 2)) * (model_.norm(fit, model_.y()));  // M: rimessa costante per confronto con Melchionda 
+        std::cout << "in gcv_impl, here 3" << std::endl;
+
         gcvs_.emplace_back(gcv_value);
         return gcv_value;
     }
@@ -110,7 +124,18 @@ class GCV {
         double trS = cache_[model_.lambda()];
         // GCV(\lambda) = n/((n - (q + Tr[S]))^2)*norm(y - \hat y)^2
         double dor = model_.n_obs() - (model_.q() + trS);   // (n - (q + Tr[S])
-        return (model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2));   // M: tolta costante a causa della rinormalizzazione loss  
+        
+        //return (model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2));   // M: tolta costante a causa della rinormalizzazione loss  
+        
+        std::cout << "in gcv_eval, here 0" << std::endl;
+        DVector<double> fit = model_.fitted();  // M per random effect 
+        std::cout << "in gcv_eval, here 1" << std::endl;
+        std::cout << "model_.has_random_covariates() = " << model_.has_random_covariates() << std::endl;
+        if(model_.has_random_covariates()){
+            fit += model_.random_part(); 
+        }
+        std::cout << "in gcv_eval, here 2" << std::endl;
+        return (model_.n_obs() / std::pow(dor, 2)) * (model_.norm(fit, model_.y())); // M: rimessa costante per confronto con Melchionda 
     }
 
     // set edf_evaluation strategy

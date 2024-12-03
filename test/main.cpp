@@ -8,6 +8,7 @@
 // #include "src/gcv_srpde_test.cpp"
 //#include "src/gcv_qsrpde_test.cpp"
 // #include "src/gcv_mqsrpde_test.cpp"
+#include "src/gcv_msrpde_test.cpp"
 //#include "src/gcv_srpde_newton_test.cpp"
 // #include "src/kcv_srpde_test.cpp"
 

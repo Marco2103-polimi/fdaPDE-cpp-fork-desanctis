@@ -44,6 +44,10 @@ template <typename Model_> class FPIRLS {
     std::size_t max_iter_;   // maximum number of iterations before forced stop
     std::size_t k_ = 0;      // FPIRLS iteration index
     SolverWrapper solver_;   // internal solver
+    // debug 
+    double functional_value_ = 0.;
+    SpMatrix<double> weights_init_; 
+
    public:
     // constructor
     FPIRLS() = default;
@@ -51,28 +55,24 @@ template <typename Model_> class FPIRLS {
   
     // initialize internal smoothing solver
     void init() {
-        std::cout << "fpirls init here -1" << std::endl; 
+        //std::cout << "fpirls init here -1" << std::endl; 
         if (!solver_) {   // default solver initialization
             using SolverType = typename std::conditional<
               is_space_only<Model>::value, SRPDE,
               STRPDE<typename Model::RegularizationType, fdapde::monolithic> >::type;
             if constexpr (is_space_only<Model_>::value || is_space_time_parabolic<Model_>::value) {
-                std::cout << "fpirls init here 0" << std::endl; 
+                //std::cout << "fpirls init here 0" << std::endl; 
                 solver_ = SolverType(m_->pde(), m_->sampling());
-                std::cout << "fpirls init here 1" << std::endl; 
+                //std::cout << "fpirls init here 1" << std::endl; 
             } else {   // space-time separable
                 solver_ = SolverType(m_->pde(), m_->time_pde(), m_->sampling());
                 solver_.set_temporal_locations(m_->time_locs());
             }
             // solver initialization
-            std::cout << "fpirls init set locations" << std::endl; 
             solver_.set_spatial_locations(m_->locs());
-            std::cout << "fpirls init set data" << std::endl;
             solver_.set_data(m_->data());
         }
-        std::cout << "fpirls init set lambda" << std::endl;
         solver_.set_lambda(m_->lambda());     // derive smoothing level
-        std::cout << "fpirls init set mask" << std::endl;
         solver_.set_mask(m_->masked_obs());   // derive missing and masking data pattern
     }
     // executes the FPIRLS algorithm
@@ -83,22 +83,46 @@ template <typename Model_> class FPIRLS {
         double J_old = tolerance_ + 1, J_new = 0;
 	k_ = 0;
         while (k_ < max_iter_ && std::abs(J_new - J_old) > tolerance_) {
+            std::cout << std::endl; 
+            std::cout << "fpirls iter #" << k_+1 << std::endl; 
+
+            std::cout << "fpirls compute step" << std::endl; 
             m_->fpirls_compute_step();   // model specific computation of py_ and pW_
             // solve weighted least square problem
             // \argmin_{\beta, f} [ \norm(W^{1/2}(y - X\beta - f_n))^2 + \lambda \int_D (Lf - u)^2 ]
             solver_.data().template insert<double>(OBSERVATIONS_BLK, m_->py());
-            std::cout << "in fpirls compute: inserting weights in dataframe..." << std::endl; 
             solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW());  
-            std::cout << "in fpirls compute: end of insertion of the weights in dataframe!" << std::endl; 
-	    // update solver and solve
-	    solver_.init();
+
+            // debug 
+            // double max_w = (Eigen::SparseMatrix<double>(m_->pW())).coeffs().maxCoeff();
+            // std::cout << "L inf weights = " << max_w << std::endl; 
+            if(k_==0)
+                weights_init_ = m_->pW(); 
+
+            // update solver and solve
+            std::cout << "fpirls init srpde" << std::endl;
+            solver_.init();
+            std::cout << "fpirls solve srpde" << std::endl; 
             solver_.solve();
+            // std::cout << "max(abs(f))=" << solver_.f().cwiseAbs().maxCoeff() << std::endl; 
+            // std::cout << "max(abs(g))=" << solver_.g().cwiseAbs().maxCoeff() << std::endl; 
+            // std::cout << "max(abs(beta))=" << solver_.beta().cwiseAbs().maxCoeff() << std::endl; 
+
+
+            std::cout << "fpirls update step" << std::endl; 
             m_->fpirls_update_step(solver_.fitted(), solver_.beta());   // model specific update step
+            
+            
             // update objective functional J = data_loss + f^\top * P_{\lambda}(f) * f 
             k_++; J_old = J_new;
-	    J_new = m_->data_loss() + m_->ftPf(m_->lambda(), solver_.f(), solver_.g());
+
+            std::cout << "data_loss=" << m_->data_loss() << std::endl; 
+            std::cout << "penalty=" << m_->ftPf(m_->lambda(), solver_.f(), solver_.g()) << std::endl; 
+            J_new = m_->data_loss() + m_->ftPf(m_->lambda(), solver_.f(), solver_.g());
         }
         std::cout << "end fpirls" << std::endl;
+        // debug 
+        functional_value_ = J_new; 
         return;
     }
     // sets an externally defined solver
@@ -107,6 +131,11 @@ template <typename Model_> class FPIRLS {
     // getters
     std::size_t n_iter() const { return k_; }
     const SolverWrapper& solver() const { return solver_; }
+
+    // debug 
+    const double min_functional() const { return functional_value_; }
+    const SpMatrix<double> weights_init() const { return weights_init_; }
+
 };
 
 }   // namespace models

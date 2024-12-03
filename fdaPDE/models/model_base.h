@@ -36,10 +36,8 @@ namespace models {
 // abstract base interface for any fdaPDE statistical model.
 template <typename Model> class ModelBase {
    public:
-    // ModelBase() = default;
-    ModelBase() {
-        std::cout << "calling model base constructor..." << std::endl;
-    }
+    ModelBase() = default;
+
     // full model stack initialization
     void init() {
         if (model().runtime().query(runtime_status::require_penalty_init)) { model().init_regularization(); }
@@ -54,41 +52,25 @@ template <typename Model> class ModelBase {
     }
     // setters
     void set_data(const BlockFrame<double, int>& df, bool reindex = false) {
-        std::cout << "model base set data here 0" << std::endl; 
         df_ = df;
-        std::cout << "model base set data here 1" << std::endl; 
         // insert an index row (if not yet present or requested)
         if (!df_.has_block(INDEXES_BLK) || reindex) {
-            std::cout << "model base set data here 2" << std::endl; 
             int n = df_.rows();
-            std::cout << "model base set data here 3" << std::endl; 
             DMatrix<int> idx(n, 1);
-            std::cout << "model base set data here 4" << std::endl; 
             for (int i = 0; i < n; ++i) idx(i, 0) = i;
-            std::cout << "model base set data here 5" << std::endl; 
             df_.insert(INDEXES_BLK, idx);
-            std::cout << "model base set data here 6" << std::endl; 
         }
 	model().runtime().set(runtime_status::require_data_stack_update);
-    std::cout << "model base set data here 7" << std::endl; 
+
     }
     void set_lambda(const DVector<double>& lambda) {   // dynamic sized version of set_lambda provided by upper layers
 	model().set_lambda_D(lambda[0]);
 	if constexpr(is_space_time<Model>::value) model().set_lambda_T(lambda[1]);
     }
     // getters
-    const BlockFrame<double, int>& data() const { 
-        std::cout << "calling data() const in model_base" << std::endl; 
-        return df_;
-    }
-    BlockFrame<double, int>& data() { 
-        std::cout << "calling data() non-const in model_base" << std::endl; 
-        return df_; 
-    }   // direct write-access to model's internal data storage
-    const DMatrix<int>& idx() const { 
-        std::cout << "idx() in modelbase is calling get.." << std::endl; 
-        return df_.get<int>(INDEXES_BLK);
-    }   // data indices
+    const BlockFrame<double, int>& data() const { return df_;}
+    BlockFrame<double, int>& data() { return df_; }   // direct write-access to model's internal data storage
+    const DMatrix<int>& idx() const { return df_.get<int>(INDEXES_BLK); }   // data indices
     int n_locs() const { return model().n_spatial_locs() * model().n_temporal_locs(); }
     DVector<double> lambda(int) const {   // int supposed to be fdapde::Dynamic
         fdapde_assert(!is_empty(model().lambda()));
