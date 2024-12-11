@@ -75,17 +75,12 @@ class GCV {
         // return gcv at point
         // double gcv_value = model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2);  // M: tolta costante a causa della rinormalizzazione loss 
         
-        std::cout << "in gcv_impl, here 0" << std::endl;
         // M per random effect
         DVector<double> fit = model_.fitted();   
-        std::cout << "in gcv_impl, here 1" << std::endl;
-        std::cout << "model_.has_random_covariates() = " << model_.has_random_covariates() << std::endl;
         if(model_.has_random_covariates()){
             fit += model_.random_part(); 
         }
-        std::cout << "in gcv_impl, here 2" << std::endl;
         double gcv_value = (n / std::pow(dor, 2)) * (model_.norm(fit, model_.y()));  // M: rimessa costante per confronto con Melchionda 
-        std::cout << "in gcv_impl, here 3" << std::endl;
 
         gcvs_.emplace_back(gcv_value);
         return gcv_value;
@@ -127,14 +122,10 @@ class GCV {
         
         //return (model_.norm(model_.fitted(), model_.y()) / std::pow(dor, 2));   // M: tolta costante a causa della rinormalizzazione loss  
         
-        std::cout << "in gcv_eval, here 0" << std::endl;
         DVector<double> fit = model_.fitted();  // M per random effect 
-        std::cout << "in gcv_eval, here 1" << std::endl;
-        std::cout << "model_.has_random_covariates() = " << model_.has_random_covariates() << std::endl;
         if(model_.has_random_covariates()){
             fit += model_.random_part(); 
         }
-        std::cout << "in gcv_eval, here 2" << std::endl;
         return (model_.n_obs() / std::pow(dor, 2)) * (model_.norm(fit, model_.y())); // M: rimessa costante per confronto con Melchionda 
     }
 

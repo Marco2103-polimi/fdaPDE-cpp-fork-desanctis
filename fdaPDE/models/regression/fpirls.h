@@ -51,7 +51,7 @@ template <typename Model_> class FPIRLS {
    public:
     // constructor
     FPIRLS() = default;
-    FPIRLS(Model* m, double tolerance, std::size_t max_iter) : m_(m), tolerance_(tolerance), max_iter_(max_iter) {std::cout << "calling fpirls constructor" << std::endl;};
+    FPIRLS(Model* m, double tolerance, std::size_t max_iter) : m_(m), tolerance_(tolerance), max_iter_(max_iter) {};
   
     // initialize internal smoothing solver
     void init() {
@@ -86,7 +86,7 @@ template <typename Model_> class FPIRLS {
             std::cout << std::endl; 
             std::cout << "fpirls iter #" << k_+1 << std::endl; 
 
-            std::cout << "fpirls compute step" << std::endl; 
+            // std::cout << "fpirls compute step" << std::endl; 
             m_->fpirls_compute_step();   // model specific computation of py_ and pW_
             // solve weighted least square problem
             // \argmin_{\beta, f} [ \norm(W^{1/2}(y - X\beta - f_n))^2 + \lambda \int_D (Lf - u)^2 ]
@@ -99,17 +99,26 @@ template <typename Model_> class FPIRLS {
             if(k_==0)
                 weights_init_ = m_->pW(); 
 
+            // debug 
+            std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/Test_1";
+            std::string solution_path = R_path + "/simulations/sim_1/fit"; 
+            DMatrix<double> computedW = m_->pW();
+            const static Eigen::IOFormat CSVFormatW(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
+            std::ofstream fileW(solution_path + "/W" + std::to_string(k_) + ".csv");
+            if(fileW.is_open()){
+                fileW << computedW.format(CSVFormatW);
+                fileW.close();
+            }
+
+
+
             // update solver and solve
-            std::cout << "fpirls init srpde" << std::endl;
             solver_.init();
-            std::cout << "fpirls solve srpde" << std::endl; 
             solver_.solve();
             // std::cout << "max(abs(f))=" << solver_.f().cwiseAbs().maxCoeff() << std::endl; 
             // std::cout << "max(abs(g))=" << solver_.g().cwiseAbs().maxCoeff() << std::endl; 
             // std::cout << "max(abs(beta))=" << solver_.beta().cwiseAbs().maxCoeff() << std::endl; 
 
-
-            std::cout << "fpirls update step" << std::endl; 
             m_->fpirls_update_step(solver_.fitted(), solver_.beta());   // model specific update step
             
             

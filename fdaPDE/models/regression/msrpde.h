@@ -52,7 +52,6 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     }
     // setter
     void set_fpirls_tolerance(double tol) { tol_ = tol; }
-    void set_fpirls_max_iter(std::size_t max_iter) { max_iter_ = max_iter; }
 
     void init_model() { 
         fpirls_.init();
@@ -82,20 +81,25 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             V_ = fpirls_.solver().V();
         }
         invA_ = fpirls_.solver().invA();
+
         // compute Sigma_b_ matrix at fpirls convergence 
         Sigma_b_ = Delta_;
         for(auto k=0; k < p(); ++k){
             Sigma_b_(k) *= Delta_(k);
             Sigma_b_(k) = sigma_sq_hat_/Sigma_b_(k);   // ATT: assumes independence between random components
         }
-        // set random effect in Base class for gcv computations
+        // set random effect in Base class for gcv computations at fpirls convergence 
         for(int i=0; i<n_groups_; ++i){
             DVector<double> temp = Z_(i)*b_hat_[i]; 
             for(int j=0; j<group_sizes_[i]; ++j){
                 set_random_part(temp(j), ids_perm_[i][j]); 
             }
         } 
-        
+        // compute sigma_sq_hat_ at fpirls convergence. 
+        // Nota: sto seguendo il metodo di Melchionda, ovvero sigma_sq_hat_ non ha gli edf nelle iter di fpirls, ma a convergenza viene restituito calcolandolo con gli edf
+        // Nota2: questo viene fatto DOPO il calcolo di Sigma_b_ che usa quindi il sigma_sq_hat_ SENZA edf.
+        compute_sigma_sq_hat(true);
+
         // debug 
         n_iter_ = fpirls_.n_iter(); 
         min_J_ = fpirls_.min_functional(); 
@@ -110,7 +114,6 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         //std::cout << "msrpde fpirls_init here 0" << std::endl; 
 
         // Pre-allocate memory for all quatities
-        std::cout << "p()=" << p() << std::endl;
         Z_.resize(n_groups_);
         for(int i=0; i<n_groups_; ++i){
             Z_(i).resize(group_sizes_[i], p()); 
@@ -140,10 +143,10 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         //std::cout << "msrpde fpirls_init here 3" << std::endl; 
         
         // initialize Delta_
-        std::cout << "Delta_ init computation" << std::endl;
-        std::cout << "Delta_(0) at instatiation = " << Delta_(0) << std::endl;
-        std::cout << "p()=" << p() << std::endl;
-        std::cout << "n_groups_=" << n_groups_ << std::endl;
+        // std::cout << "Delta_ init computation" << std::endl;
+        // std::cout << "Delta_(0) at instatiation = " << Delta_(0) << std::endl;
+        // std::cout << "p()=" << p() << std::endl;
+        // std::cout << "n_groups_=" << n_groups_ << std::endl;
         for(int k=0; k < p(); ++k){
             Delta_(k) = 0.; 
             //std::cout << "Delta_(k) at begin loop instatiation = " << Delta_(k) << std::endl;
@@ -159,9 +162,9 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
                     // std::cout << "value of Delta_(" << k << ") at i=" << i << ", j=" << j << "k=" << k << "...=" << std::setprecision(16) << Delta_(k) << std::endl;
                 }
             }
-            std::cout << "Pre sqrt and mult: Delta_(" << k << ")=" << Delta_(k) << std::endl;
+            //std::cout << "Pre sqrt and mult: Delta_(" << k << ")=" << Delta_(k) << std::endl;
             Delta_(k) = std::sqrt( Delta_(k)/n_groups_ ) * 3 / 8;  // ATT 3/8 fa zero (o metti il punto o metti 3/8 dopo)
-            std::cout << "Delta_(" << k << ")=" << Delta_(k) << std::endl;
+            //std::cout << "Delta_(" << k << ")=" << Delta_(k) << std::endl;
         }
         //std::cout << "msrpde fpirls_init here 3" << std::endl; 
         // std::cout << "dim Delta_=" << Delta_.size() << std::endl; 
@@ -179,8 +182,8 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
 
         // compute pseudo observations
         py_ = y(); 
-        std::cout << "dim py_=" << py_.size() << std::endl; 
-        std::cout << "max py_=" << py_.maxCoeff() << std::endl; 
+        // std::cout << "dim py_=" << py_.size() << std::endl; 
+        // std::cout << "max py_=" << py_.maxCoeff() << std::endl; 
 
         // compute ZtildeTZtilde_
         for(auto i=0; i < n_groups_; ++i){
@@ -354,14 +357,14 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             ids_perm_[i_loc].push_back(i);  // map the global index to the local one
         }
 
-        // debug: print ids_perm_
-        std::cout << "printing ids_perm_" << std::endl; 
-        for(int k=0; k<ids_perm_.size(); ++k){
-            std::cout << std::endl; 
-            for(int j=0; j<ids_perm_[k].size(); ++j){
-                std::cout << ids_perm_[k][j] << "; ";  
-            }    
-        }
+        // // debug: print ids_perm_
+        // std::cout << "printing ids_perm_" << std::endl; 
+        // for(int k=0; k<ids_perm_.size(); ++k){
+        //     std::cout << std::endl; 
+        //     for(int j=0; j<ids_perm_[k].size(); ++j){
+        //         std::cout << ids_perm_[k][j] << "; ";  
+        //     }    
+        // }
 
         // std::cout << "printing group_sizes_" << std::endl; 
         // for(int k=0; k<group_sizes_.size(); ++k){
@@ -452,7 +455,40 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         }
     }
     
-    void compute_sigma_sq_hat() {
+    DMatrix<double> lmbQ_model(const DMatrix<double>& x) const {
+
+        SpMatrix<double> W = fpirls_.solver().W(); // we need to take it from fpirls since we are not at convergence yet, so RegressionBase does not store the correct matrices
+
+        if (!has_covariates()) return W * x;
+        DMatrix<double> v = X().transpose() * W * x;   // X^\top*W*x
+        DMatrix<double> XtWX = X().transpose() * W * X();
+        Eigen::PartialPivLU<DMatrix<double>> invXtWX = XtWX.partialPivLu();
+        
+        DMatrix<double> z = invXtWX.solve(v);          // (X^\top*W*X)^{-1}*X^\top*W*x
+        // compute W*x - W*X*z = W*x - (W*X*(X^\top*W*X)^{-1}*X^\top*W)*x = W(I - H)*x = Q*x
+        return W * x - W * X() * z;
+    }
+    
+    double compute_edf(){
+
+        // M: nota: inefficient computation !! 
+
+        //std::cout << "in compute_edf, lambda_D() = " << lambda_D() << std::endl;
+        SpMatrix<double> P = lambda_D() * (Base::R1().transpose() * Base::invR0().solve(Base::R1()));   // space-only !! 
+        DMatrix<double> T = PsiTD() * lmbQ_model(Psi()) + P;
+
+        Eigen::PartialPivLU<DMatrix<double>> invT = T.partialPivLu();
+        DMatrix<double> E = PsiTD();          
+        DMatrix<double> S = lmbQ_model(Psi() * invT.solve(E));   // \Psi*T^{-1}*\Psi^T*Q
+        double ret_edf = 0.; 
+        
+        for(int i=0; i<S.rows(); ++i){
+            ret_edf += S(i,i); 
+        }
+        return ret_edf;
+    }
+
+    void compute_sigma_sq_hat(bool edf_flag=false) {
 
         sigma_sq_hat_ = 0.;	
         for(auto i=0; i < n_groups_; i++){ 
@@ -462,8 +498,30 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             // std::cout << "L inf res_i = " << res_i.cwiseAbs().maxCoeff() << std::endl; 
             sigma_sq_hat_ += res_i.dot(res_i);
         }
+
+
+        // // Versione Pigani (per test 1-tris)
+        // std::cout << "ATT: RUNNING PIGANI sigma2 computaiton!!" << std::endl;
+        // double edf = compute_edf(); 
+        // if(has_covariates()){
+        //     edf += q();   // p()? Pigani non lo mette  
+        // }
+        // sigma_sq_hat_ /= (n_obs()-edf); 
+
     
-        sigma_sq_hat_ /= n_obs();  // ATT: dubbio: Melchionda mette solo n, ma la formula di Pigani dice n-(q+tr(S))
+        // Versione Melchionda 
+        if(edf_flag){
+            double edf = compute_edf(); 
+            if(has_covariates()){
+                edf += q();   // p()? Pigani non lo mette  
+            }
+            sigma_sq_hat_ /= (n_obs()-edf); 
+        } else{
+            sigma_sq_hat_ /= n_obs(); 
+        }
+
+  
+        
     }
     void build_LTL(){
 

@@ -201,11 +201,7 @@ class RegressionBase :
         if (!nan_mask_.size()) nan_mask_.resize(Base::n_locs());
 
         // compute q x q dense matrix X^\top*W*X and its factorization
-        std::cout << "in regression base, has_weights()=" << has_weights() << std::endl;
-        std::cout << "in regression base, df_.is_dirty(WEIGHTS_BLK)=" << df_.is_dirty(WEIGHTS_BLK) << std::endl;
         if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
-
-            std::cout << "analyze data in IF" << std::endl; 
      
             // W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
             // model().runtime().set(runtime_status::require_W_update);
@@ -213,7 +209,7 @@ class RegressionBase :
             // M 
             W_.resize(n_obs(), n_obs());   // ATT: dentro if-else, l'altrimenti quando controlla se fai resize fuori il check "se vuota" gli rida' true
             W_ = df_.template get<double>(WEIGHTS_BLK).sparseView(); // M tolta costante rinormalizzazione per confronto con Melchionda;                      
-            std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
+            // std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
             model().runtime().set(runtime_status::require_W_update);
 
             // // M: 
@@ -225,8 +221,6 @@ class RegressionBase :
             // model().runtime().set(runtime_status::require_W_update);
 
         } else if (is_empty(W_)) {
-
-            std::cout << "analyze data in ELSE" << std::endl; 
 
             // // default to homoskedastic observations
             // W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
@@ -241,7 +235,7 @@ class RegressionBase :
             // M
             W_.resize(n_obs(), n_obs()); 
             W_.setIdentity(); 
-            std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
+            // std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
 
             // W_ *= (1.0 / Base::n_locs());  // ATT commentato per confronto con Melchionda (tolto rinormalizzazione) 
         }

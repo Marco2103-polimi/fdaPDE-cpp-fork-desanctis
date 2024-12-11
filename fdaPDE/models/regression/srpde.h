@@ -40,6 +40,10 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
     SparseBlockMatrix<double, 2, 2> A_ {};         // system matrix of non-parametric problem (2N x 2N matrix)
     fdapde::SparseLU<SpMatrix<double>> invA_ {};   // factorization of matrix A
     DVector<double> b_ {};                         // right hand side of problem's linear system (1 x 2N vector)
+    // for debug 
+    double sigma_sq_hat_; 
+
+
    public:
     IMPORT_REGRESSION_SYMBOLS
     using Base::lambda_D;   // smoothing parameter in space
@@ -63,8 +67,6 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
             // }
             // std::cout << "range W() in init_model srpde:" << (Eigen::SparseMatrix<double>(W())).coeffs().minCoeff() << ";" << (Eigen::SparseMatrix<double>(W())).coeffs().maxCoeff() << std::endl; 
             
-            std::cout << "lambda_D() in srpde = " << std::setprecision(16) << lambda_D() << std::endl;
-            
             // assemble system matrix for nonparameteric part
             A_ = SparseBlockMatrix<double, 2, 2>(
               -PsiTD() * W() * Psi(), lambda_D() * R1().transpose(),
@@ -76,23 +78,10 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
             return;
         }
         if (runtime().query(runtime_status::require_W_update)) {
-            std::cout << "here 0 in init_model srpde in IF2" << std::endl;
-            if (W().nonZeros() == 0) {
-                std::cout << "The sparse matrix is empty (no non-zero elements)." << std::endl;
-            } else {
-                std::cout << "The sparse matrix has non-zero elements." << std::endl;
-            }
-            std::cout << "range W() in init_model srpde:" << (Eigen::SparseMatrix<double>(W())).coeffs().minCoeff() << ";" << (Eigen::SparseMatrix<double>(W())).coeffs().maxCoeff() << std::endl; 
-            std::cout << "dim W() = " << W().rows() << ";" << W().cols() << std::endl;
-            std::cout << "dim Psi() = " << Psi().rows() << ";" << Psi().cols() << std::endl;
-            std::cout << "dim PsiTD() = " << PsiTD().rows() << ";" << PsiTD().cols() << std::endl;
-            std::cout << "dim A_.block(0, 0) = " << A_.block(0, 0).rows() << ";" << A_.block(0, 0).cols() << std::endl;
                         
             // adjust north-west block of matrix A_ only
             A_.block(0, 0) = -PsiTD() * W() * Psi();
-            std::cout << "here 1 in init_model srpde in IF2" << std::endl;
             invA_.compute(A_);
-            std::cout << "here 2 in init_model srpde in IF2" << std::endl;
             return;
         }
     }
@@ -106,7 +95,6 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
             sol = invA_.solve(b_);
             f_ = sol.head(n_basis());
         } else {   // parametric case
-            std::cout << "srpde solve parametric case" << std::endl; 
             // update rhs of SR-PDE linear system
             b_.block(0, 0, n_basis(), 1) = -PsiTD() * lmbQ(y());   // -\Psi^T*D*Q*z
             // matrices U and V for application of woodbury formula
@@ -122,6 +110,21 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
         }
         // store PDE misfit
         g_ = sol.tail(n_basis());
+
+        // M debug: compute sigma_sq_hat_
+
+        DVector<double> res_temp = y() - Psi() * f_; 
+        if (has_covariates()) {
+            res_temp -= X()*beta_; 
+        }
+        sigma_sq_hat_ = res_temp.dot(res_temp);
+        double edf = compute_edf(); 
+        if(has_covariates()){
+            edf += q();  
+        }
+        sigma_sq_hat_ /= (n_obs()-edf); 
+
+
         return;
     }
     // GCV support
@@ -129,6 +132,41 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
     // getters
     const SparseBlockMatrix<double, 2, 2>& A() const { return A_; }
     const fdapde::SparseLU<SpMatrix<double>>& invA() const { return invA_; }
+
+    // M for debug 
+    DMatrix<double> lmbQ_model(const DMatrix<double>& x) const {
+
+        // NOTA: W=I (solo caso omoschedastico) -> e' per debug 
+        if (!has_covariates()) return x;
+        DMatrix<double> v = X().transpose() * x;   // X^\top*W*x
+        DMatrix<double> XtWX = X().transpose() * X();
+        Eigen::PartialPivLU<DMatrix<double>> invXtWX = XtWX.partialPivLu();
+        
+        DMatrix<double> z = invXtWX.solve(v);          // (X^\top*W*X)^{-1}*X^\top*W*x
+        // compute W*x - W*X*z = W*x - (W*X*(X^\top*W*X)^{-1}*X^\top*W)*x = W(I - H)*x = Q*x
+        return x - X() * z;
+    }
+    
+    double compute_edf(){
+
+        // M: nota: inefficient computation !! 
+
+        //std::cout << "in compute_edf, lambda_D() = " << lambda_D() << std::endl;
+        SpMatrix<double> P = lambda_D() * (Base::R1().transpose() * Base::invR0().solve(Base::R1()));   // space-only !! 
+        DMatrix<double> T = PsiTD() * lmbQ_model(Psi()) + P;
+
+        Eigen::PartialPivLU<DMatrix<double>> invT = T.partialPivLu();
+        DMatrix<double> E = PsiTD();          
+        DMatrix<double> S = lmbQ_model(Psi() * invT.solve(E));   // \Psi*T^{-1}*\Psi^T*Q
+        double ret_edf = 0.; 
+        
+        for(int i=0; i<S.rows(); ++i){
+            ret_edf += S(i,i); 
+        }
+        return ret_edf;
+    }
+    const double& sigma_sq_hat() const { return sigma_sq_hat_; };
+
     virtual ~SRPDE() = default;
 };
 

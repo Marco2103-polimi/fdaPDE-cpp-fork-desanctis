@@ -8,7 +8,7 @@
 // #include "src/gcv_srpde_test.cpp"
 //#include "src/gcv_qsrpde_test.cpp"
 // #include "src/gcv_mqsrpde_test.cpp"
-#include "src/gcv_msrpde_test.cpp"
+// #include "src/gcv_msrpde_test.cpp"
 //#include "src/gcv_srpde_newton_test.cpp"
 // #include "src/kcv_srpde_test.cpp"
 
@@ -17,12 +17,17 @@
 //#include "src/gsrpde_test.cpp"
 //#include "src/qsrpde_test.cpp"
 // #include "src/mqsrpde_test.cpp"
-#include "src/msrpde_test.cpp"
+// #include "src/msrpde_test.cpp"
 
 // functional test suite
 //#include "src/fpca_test.cpp"
 //#include "src/fpls_test.cpp"
 //#include "src/centering_test.cpp"
+
+// // case studies 
+// #include "src/case_study_MQSRPDE.cpp"
+#include "src/case_study_MSRPDE.cpp"
+
 
 int main(int argc, char **argv){
   // start testing
