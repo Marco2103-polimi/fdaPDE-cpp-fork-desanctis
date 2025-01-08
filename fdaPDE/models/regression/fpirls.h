@@ -83,15 +83,16 @@ template <typename Model_> class FPIRLS {
         double J_old = tolerance_ + 1, J_new = 0;
 	k_ = 0;
         while (k_ < max_iter_ && std::abs(J_new - J_old) > tolerance_) {
-            std::cout << std::endl; 
-            std::cout << "fpirls iter #" << k_+1 << std::endl; 
+ 
 
-            // std::cout << "fpirls compute step" << std::endl; 
             m_->fpirls_compute_step();   // model specific computation of py_ and pW_
+
             // solve weighted least square problem
             // \argmin_{\beta, f} [ \norm(W^{1/2}(y - X\beta - f_n))^2 + \lambda \int_D (Lf - u)^2 ]
+
             solver_.data().template insert<double>(OBSERVATIONS_BLK, m_->py());
             solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW());  
+
 
             // debug 
             // double max_w = (Eigen::SparseMatrix<double>(m_->pW())).coeffs().maxCoeff();
@@ -99,35 +100,42 @@ template <typename Model_> class FPIRLS {
             if(k_==0)
                 weights_init_ = m_->pW(); 
 
-            // debug 
-            std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/Test_1";
-            std::string solution_path = R_path + "/simulations/sim_1/fit"; 
-            DMatrix<double> computedW = m_->pW();
-            const static Eigen::IOFormat CSVFormatW(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
-            std::ofstream fileW(solution_path + "/W" + std::to_string(k_) + ".csv");
-            if(fileW.is_open()){
-                fileW << computedW.format(CSVFormatW);
-                fileW.close();
-            }
+            // // debug 
+            // std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/Test_1";
+            // std::string solution_path = R_path + "/simulations/sim_1/fit"; 
+            // DMatrix<double> computedW = m_->pW();
+            // const static Eigen::IOFormat CSVFormatW(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
+            // std::ofstream fileW(solution_path + "/W" + std::to_string(k_) + ".csv");
+            // if(fileW.is_open()){
+            //     fileW << computedW.format(CSVFormatW);
+            //     fileW.close();
+            // }
 
 
 
             // update solver and solve
             solver_.init();
+
             solver_.solve();
             // std::cout << "max(abs(f))=" << solver_.f().cwiseAbs().maxCoeff() << std::endl; 
             // std::cout << "max(abs(g))=" << solver_.g().cwiseAbs().maxCoeff() << std::endl; 
             // std::cout << "max(abs(beta))=" << solver_.beta().cwiseAbs().maxCoeff() << std::endl; 
 
+
             m_->fpirls_update_step(solver_.fitted(), solver_.beta());   // model specific update step
+
             
             
             // update objective functional J = data_loss + f^\top * P_{\lambda}(f) * f 
             k_++; J_old = J_new;
 
-            std::cout << "data_loss=" << m_->data_loss() << std::endl; 
-            std::cout << "penalty=" << m_->ftPf(m_->lambda(), solver_.f(), solver_.g()) << std::endl; 
+            // std::cout << "data_loss=" << m_->data_loss() << std::endl; 
+            // std::cout << "penalty=" << m_->ftPf(m_->lambda(), solver_.f(), solver_.g()) << std::endl; 
+
+
             J_new = m_->data_loss() + m_->ftPf(m_->lambda(), solver_.f(), solver_.g());
+
+
         }
         std::cout << "end fpirls" << std::endl;
         // debug 

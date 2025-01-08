@@ -72,6 +72,9 @@ class RegressionBase :
     int n_nan_ = 0;                              // number of missing entries in observation vector
     SpMatrix<double> B_;                         // matrix \Psi corrected for NaN and masked observations
 
+    // M debug 
+    bool normalize_loss_ = false; 
+
     // matrices required for Woodbury decomposition
     DMatrix<double> U_;   // [\Psi^\top*D*W*X, 0]
     DMatrix<double> V_;   // [X^\top*W*\Psi,   0]
@@ -151,6 +154,9 @@ class RegressionBase :
         random_part_(ind) = coeff;
     }; 
 
+    // M debug 
+    void set_normalize_loss(bool flag) { normalize_loss_ = flag; }
+    bool normalize_loss() const { return normalize_loss_; }
 
     // efficient left multiplication by matrix Q = W(I - X*(X^\top*W*X)^{-1}*X^\top*W)
     DMatrix<double> lmbQ(const DMatrix<double>& x) const {
@@ -206,19 +212,20 @@ class RegressionBase :
             // W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
             // model().runtime().set(runtime_status::require_W_update);
 
-            // M 
-            W_.resize(n_obs(), n_obs());   // ATT: dentro if-else, l'altrimenti quando controlla se fai resize fuori il check "se vuota" gli rida' true
-            W_ = df_.template get<double>(WEIGHTS_BLK).sparseView(); // M tolta costante rinormalizzazione per confronto con Melchionda;                      
-            // std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
+            // M for sparse matrix 
+            W_.resize(Base::n_locs(), Base::n_locs());   // ATT: da mettere dentro l'if-else
+            // nota: n_locs() e non n_obs() perche' deve essere lunga il numero totale di osservazioni
+            W_ = df_.template get<double>(WEIGHTS_BLK).sparseView(); 
+            if(normalize_loss_){
+                std::cout << "loss normalized in regression base" << std::endl;
+                W_ = (1.0/n_obs())*df_.template get<double>(WEIGHTS_BLK).sparseView(); // M aggiunta costante a causa della rinormalizzazione della loss;                     
+                // ATT: messo n_obs(), non n_locs() (coerente con gcv.h e poi perchè è il vero numero di dati osservati)
+                // ATT: per confronto con Melchionda, commenta la riga sopra 
+            }
+
+
             model().runtime().set(runtime_status::require_W_update);
 
-            // // M: 
-            // if constexpr (has_dense_weights<Model>::value){
-            //     W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK); // M aggiunta costante a causa della rinormalizzazione della loss; 
-            // } else{
-            //     W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss;  
-            // }
-            // model().runtime().set(runtime_status::require_W_update);
 
         } else if (is_empty(W_)) {
 
@@ -237,7 +244,11 @@ class RegressionBase :
             W_.setIdentity(); 
             // std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
 
-            // W_ *= (1.0 / Base::n_locs());  // ATT commentato per confronto con Melchionda (tolto rinormalizzazione) 
+            if(normalize_loss_){
+                std::cout << "loss normalized in regression base" << std::endl;
+                W_ *= (1.0 / n_obs());  // ATT: costante per rinormalizzazione 
+            }
+            
         }
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(DESIGN_MATRIX_RANDOM_BLK) || df_.is_dirty(WEIGHTS_BLK))) { // M added check for random effects 

@@ -37,7 +37,7 @@ struct RegressionModel__ {
     using fn_ptrs = fdapde::mem_fn_ptrs<
       &M::f, &M::beta, &M::g, &M::fitted, &M::W, &M::XtWX, &M::U, &M::V, &M::invXtWX, &M::invA, &M::q, &M::n_obs,
       &M::norm, &M::y, &M::T, &M::lmbQ, &M::has_covariates, &M::nan_mask, &M::set_mask, &M::X, &M::p, 
-      &M::has_random_covariates, &M::Z, &M::set_random_part, &M::random_part>;
+      &M::has_random_covariates, &M::Z, &M::set_random_part, &M::random_part, &M::set_normalize_loss, &M::normalize_loss>;
     // interface implementation
     decltype(auto) f()       const { return invoke<const DVector<double>&   , 0>(*this); }
     decltype(auto) beta()    const { return invoke<const DVector<double>&   , 1>(*this); }
@@ -66,6 +66,8 @@ struct RegressionModel__ {
     decltype(auto) Z() const { return invoke<const DMatrix<double>&, 22>(*this); }
     decltype(auto) set_random_part(const double& coeff, const unsigned int& ind) { return invoke<void, 23>(*this, coeff, ind); }
     decltype(auto) random_part() const { return invoke<const DVector<double>&   , 24>(*this); }
+    decltype(auto) set_normalize_loss(bool flag) { return invoke<void, 25>(*this, flag); }
+    decltype(auto) normalize_loss() const { return invoke<bool   , 26>(*this); }
 };
 
 template <typename RegularizationType>

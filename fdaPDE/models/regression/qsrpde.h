@@ -68,38 +68,26 @@ class QSRPDE : public RegressionBase<QSRPDE<RegularizationType_>, Regularization
     void set_weights_tolerance(double tol_weights) { tol_weights_ = tol_weights; }
 
     void init_model() { 
-        std::cout << "qsrpde init model" << std::endl; 
         fpirls_.init();
-        std::cout << "qsrpde end init model" << std::endl; 
     }
     void solve() {
 
         // execute FPIRLS_ for minimization of functional \norm{V^{-1/2}(y - \mu)}^2 + \lambda \int_D (Lf - u)^2
         fpirls_.compute();
-        std::cout << "qsrpde solve here 0" << std::endl; 
 
         // fpirls_ converged: store solution estimates  
         W_ = fpirls_.solver().W();
-        std::cout << "qsrpde solve here 1" << std::endl; 
         f_ = fpirls_.solver().f();
-        std::cout << "qsrpde solve here 2" << std::endl; 
         g_ = fpirls_.solver().g();
-        std::cout << "qsrpde solve here 3" << std::endl; 
         // parametric part, if problem was semi-parametric
         if (has_covariates()) {
             beta_ = fpirls_.solver().beta();
-            std::cout << "qsrpde solve here 4" << std::endl; 
             XtWX_ = fpirls_.solver().XtWX();
-            std::cout << "qsrpde solve here 5" << std::endl; 
             invXtWX_ = fpirls_.solver().invXtWX();
-            std::cout << "qsrpde solve here 6" << std::endl; 
             U_ = fpirls_.solver().U();
-            std::cout << "qsrpde solve here 7" << std::endl; 
             V_ = fpirls_.solver().V();
-            std::cout << "qsrpde solve here 8" << std::endl; 
         }
         invA_ = fpirls_.solver().invA();
-        std::cout << "qsrpde solve here 9" << std::endl; 
 
         return;
     }
@@ -112,7 +100,6 @@ class QSRPDE : public RegressionBase<QSRPDE<RegularizationType_>, Regularization
 
         // nota: qui il fattore di normalizzazione rimane in quanto questo è il sistema SRPDE con 
         //       pesi posti uguali all'identità.  
-        std::cout << "qsrpde fpirls init set A" << std::endl;
         SparseBlockMatrix<double, 2, 2> A(
           -PsiTD() * Psi() / n_obs(), 2 * lambda_D() * R1().transpose(),   // NB: note the 2 * here
           lambda_D() * R1(),          lambda_D() * R0()                );
@@ -122,9 +109,7 @@ class QSRPDE : public RegressionBase<QSRPDE<RegularizationType_>, Regularization
             A.block(0, 0) -= 2*Base::lambda_T() * Kronecker(Base::P1(), Base::pde().mass());
         }
         fdapde::SparseLU<SpMatrix<double>> invA;
-        std::cout << "qsrpde init_model invA" << std::endl; 
         invA.compute(A);
-        std::cout << "qsrpde init_model end invA" << std::endl; 
 
         // assemble rhs of srpde problem
         DVector<double> b(A.rows());

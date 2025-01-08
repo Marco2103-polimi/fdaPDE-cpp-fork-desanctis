@@ -44,6 +44,7 @@ TEST(case_study_msrpde_gcv, NO2) {
     const std::string month = "gennaio";       // gennaio dicembre 
     const std::string day_chosen = "11"; 
     const std::string rescale_data = "_rescale";   // "" "_rescale"
+    const bool normalized_loss_flag = false;  // true to normalize the loss 
 
     std::string pde_type = "tr";  // ""  "tr" 
     const std::string u_string = "1e-1"; 
@@ -56,7 +57,7 @@ TEST(case_study_msrpde_gcv, NO2) {
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
     const std::string model_type = "param";  // "nonparam" "param"
-    const std::string  cascading_model_type = "parametric";  // "parametric" "nonparametric" 
+    const std::string  cascading_model_type = "nonparametric";  // "parametric" "nonparametric" 
     if(cascading_model_type == "parametric"){
         pde_type = pde_type + "_par"; 
     }
@@ -121,7 +122,7 @@ TEST(case_study_msrpde_gcv, NO2) {
 
     std::cout << "solution path: " << solutions_path << std::endl; 
     
-    // lambdas sequence 
+    // lambdas sequence -> ATT: quando ho lanciato i modelli space-only ARPA, le loss non erano normalizzate  
     std::vector<double> lambdas; 
     DMatrix<double> lambdas_mat;
     double seq_start; double seq_end; double seq_by; 
@@ -232,8 +233,10 @@ TEST(case_study_msrpde_gcv, NO2) {
         
         // set model's data
         model.set_spatial_locations(space_locs);
+        model.set_normalize_loss(normalized_loss_flag);
         
         model.set_data(df);
+
         model.init();
 
         // define GCV function and grid of \lambda_D values
@@ -294,6 +297,7 @@ TEST(case_study_msrpde_gcv, NO2) {
         model_gcv.set_data(df);
         model_gcv.set_ids_groups(ids_groups); 
         model_gcv.set_fpirls_max_iter(num_fpirls_iter); 
+        model_gcv.set_normalize_loss(normalized_loss_flag);
 
         model_gcv.init();
 
@@ -347,6 +351,7 @@ TEST(case_study_msrpde_run, NO2) {
     const std::string month = "gennaio";       // gennaio dicembre 
     const std::string day_chosen = "11"; 
     const std::string rescale_data = "_rescale";   // "" "_rescale"
+    const bool normalized_loss_flag = false; // true to normalize the loss
 
     std::string pde_type = "tr";  // ""  "tr" 
     const std::string u_string = "1e-1"; 
@@ -356,7 +361,7 @@ TEST(case_study_msrpde_run, NO2) {
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
     const std::string model_type = "param";  // "nonparam" "param"
-    const std::string  cascading_model_type = "parametric";  // "parametric" "nonparametric" 
+    const std::string  cascading_model_type = "nonparametric";  // "parametric" "nonparametric" 
     if(cascading_model_type == "parametric"){
         pde_type = pde_type + "_par"; 
     }
@@ -482,6 +487,7 @@ TEST(case_study_msrpde_run, NO2) {
     
         // set model's data
         model.set_spatial_locations(space_locs);
+        model.set_normalize_loss(normalized_loss_flag);
 
         // Read optima lambdas 
         double lambda_S; 
@@ -535,6 +541,7 @@ TEST(case_study_msrpde_run, NO2) {
         model.set_spatial_locations(space_locs);
         model.set_fpirls_max_iter(num_fpirls_iter);
         model.set_ids_groups(ids_groups);  
+        model.set_normalize_loss(normalized_loss_flag);
         
         double lambda; 
         std::ifstream fileLambda(solutions_path + "/lambdas_opt.csv");

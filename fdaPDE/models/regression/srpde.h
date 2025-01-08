@@ -111,20 +111,6 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
         // store PDE misfit
         g_ = sol.tail(n_basis());
 
-        // M debug: compute sigma_sq_hat_
-
-        DVector<double> res_temp = y() - Psi() * f_; 
-        if (has_covariates()) {
-            res_temp -= X()*beta_; 
-        }
-        sigma_sq_hat_ = res_temp.dot(res_temp);
-        double edf = compute_edf(); 
-        if(has_covariates()){
-            edf += q();  
-        }
-        sigma_sq_hat_ /= (n_obs()-edf); 
-
-
         return;
     }
     // GCV support
@@ -165,7 +151,6 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
         }
         return ret_edf;
     }
-    const double& sigma_sq_hat() const { return sigma_sq_hat_; };
 
     virtual ~SRPDE() = default;
 };

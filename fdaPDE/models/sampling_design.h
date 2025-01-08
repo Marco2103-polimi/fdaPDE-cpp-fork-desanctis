@@ -56,10 +56,7 @@ template <typename Model> class SamplingBase {
     }
    public:
     SamplingBase() = default;
-    SamplingBase(Sampling sampling) : sampling_(sampling) { 
-        std::cout << "sampling = " << sampling << std::endl; 
-        std::cout << "calling SamplingBase constructor..." << std::endl;
-    }
+    SamplingBase(Sampling sampling) : sampling_(sampling) {}
   
     void init_sampling(bool forced = false) {
         // compute once if not forced to recompute

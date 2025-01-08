@@ -46,10 +46,17 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     MSRPDE() = default;
     // space-only constructor
     MSRPDE(const Base::PDE& pde, Sampling s)
-        requires(is_space_only<This>::value)
+        requires(is_space_only<This>::value || is_space_time_parabolic<This>::value)
         : Base(pde, s) {
         fpirls_ = FPIRLS<This>(this, tol_, max_iter_);
     }
+    // space-time separable constructor
+    MSRPDE(const Base::PDE& space_penalty, const Base::PDE& time_penalty, Sampling s)
+        requires(is_space_time_separable<This>::value)
+        : Base(space_penalty, time_penalty, s) {
+        fpirls_ = FPIRLS<This>(this, tol_, max_iter_);
+    }
+
     // setter
     void set_fpirls_tolerance(double tol) { tol_ = tol; }
 
@@ -58,22 +65,17 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     }
     void solve() {
         
-        //std::cout << "in solve msrpde here 0" << std::endl; 
         fdapde_assert(y().rows() != 0);
-        //std::cout << "in solve msrpde here 1" << std::endl; 
 
         // execute FPIRLS_ for minimization of functional \norm{V^{-1/2}(y - \mu)}^2 + \lambda \int_D (Lf - u)^2
         fpirls_.compute();
-        //std::cout << "in solve msrpde here 2" << std::endl; 
 
         // fpirls_ converged: store solution estimates  
-        // std::cout << "store weights at convergence: L inf = " << fpirls_.solver().W().coeffs().maxCoeff() << std::endl; 
         W_ = fpirls_.solver().W();        
         f_ = fpirls_.solver().f();
         g_ = fpirls_.solver().g();
         // parametric part, if problem was semi-parametric
         if (has_covariates()) {
-            //std::cout << "store beta at convergence: L inf = " << fpirls_.solver().beta().cwiseAbs().maxCoeff() << std::endl; 
             beta_ = fpirls_.solver().beta();
             XtWX_ = fpirls_.solver().XtWX();
             invXtWX_ = fpirls_.solver().invXtWX();
@@ -92,7 +94,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         for(int i=0; i<n_groups_; ++i){
             DVector<double> temp = Z_(i)*b_hat_[i]; 
             for(int j=0; j<group_sizes_[i]; ++j){
-                set_random_part(temp(j), ids_perm_[i][j]); 
+                set_random_part(temp(j), loc_to_glob_map_[i][j]); 
             }
         } 
         // compute sigma_sq_hat_ at fpirls convergence. 
@@ -111,8 +113,6 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     // required by FPIRLS_ (see fpirls_.h for details)
     void fpirls_init() {
 
-        //std::cout << "msrpde fpirls_init here 0" << std::endl; 
-
         // Pre-allocate memory for all quatities
         Z_.resize(n_groups_);
         for(int i=0; i<n_groups_; ++i){
@@ -130,45 +130,44 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         for(int i=0; i<n_groups_; ++i){
             pW_(i).resize(group_sizes_[i], group_sizes_[i]);
         }
-        
-        //std::cout << "msrpde fpirls_init here 2" << std::endl; 
 
         // Compute Z_ and ZTZ_ for each group
         for(int i=0; i < n_groups_; ++i){
-            DMatrix<double> Z_i = matrix_indexing(Z(), ids_perm_[i]); 
-            Z_(i) = Z_i;
-            // std::cout << "check Z_i...L inf Z_" << i << "=" << Z_i.maxCoeff() << std::endl; 
-            ZTZ_(i) = Z_i.transpose() * Z_i;
+
+            Z_(i) = matrix_indexing(Z(), loc_to_glob_map_[i]);
+
+            if(set_miss_rows_Z_to_zero_){
+                // metto a zero le righe di Z che hanno missing data -> questo serve per calcolo di Delta_, Ztilde e quindi b_i, sigma_sq_hat_ etc..
+                for(int glob_idx : loc_to_glob_map_[i]){
+                    if(Base::nan_mask()[glob_idx]){
+                        //std::cout << "set to zero rows of Z missing" << std::endl;
+                        std::vector<unsigned int> glob_idxs_of_block = loc_to_glob_map_[i]; 
+                        unsigned int block_row_idx; 
+                        for(int idx=0; idx < glob_idxs_of_block.size(); ++idx){
+                            if(glob_idxs_of_block[idx] == glob_idx){
+                                block_row_idx = idx; 
+                            }
+                        }
+
+                        (Z_(i).row(block_row_idx)).setZero();
+                    }
+                }  
+            } 
+
+            ZTZ_(i) = Z_(i).transpose() * Z_(i);
         }
-        //std::cout << "msrpde fpirls_init here 3" << std::endl; 
+
         
         // initialize Delta_
-        // std::cout << "Delta_ init computation" << std::endl;
-        // std::cout << "Delta_(0) at instatiation = " << Delta_(0) << std::endl;
-        // std::cout << "p()=" << p() << std::endl;
-        // std::cout << "n_groups_=" << n_groups_ << std::endl;
         for(int k=0; k < p(); ++k){
             Delta_(k) = 0.; 
-            //std::cout << "Delta_(k) at begin loop instatiation = " << Delta_(k) << std::endl;
             for(int i=0; i < n_groups_; i++){
-                //std::cout << "group_sizes_[" << i << "]=" << group_sizes_[i] << std::endl;
                 for(int j=0; j < group_sizes_[i]; j++){
-                    //std::cout << "delta computations Z^2_jk = " << std::setprecision(16) << Z_(i)(j,k)*Z_(i)(j,k) << std::endl; 
                     Delta_(k) += Z_(i)(j,k) * Z_(i)(j,k); 
-
-                    // if(i==0 && j==0)
-                    //     std::cout << "Z^2_0k = " << Z_(i)(j,k) * Z_(i)(j,k) << std::endl;
-
-                    // std::cout << "value of Delta_(" << k << ") at i=" << i << ", j=" << j << "k=" << k << "...=" << std::setprecision(16) << Delta_(k) << std::endl;
                 }
             }
-            //std::cout << "Pre sqrt and mult: Delta_(" << k << ")=" << Delta_(k) << std::endl;
             Delta_(k) = std::sqrt( Delta_(k)/n_groups_ ) * 3 / 8;  // ATT 3/8 fa zero (o metti il punto o metti 3/8 dopo)
-            //std::cout << "Delta_(" << k << ")=" << Delta_(k) << std::endl;
         }
-        //std::cout << "msrpde fpirls_init here 3" << std::endl; 
-        // std::cout << "dim Delta_=" << Delta_.size() << std::endl; 
-        // std::cout << "L inf Delta_=" << std::setprecision(16) << Delta_.cwiseAbs().maxCoeff() << std::endl; 
 
         // debug
         Delta_init_ = Delta_;
@@ -178,14 +177,10 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     // computes W^k
     void fpirls_compute_step() {
 
-        //std::cout << "msrpde fpirls_compute step() here 0" << std::endl; 
-
         // compute pseudo observations
         py_ = y(); 
-        // std::cout << "dim py_=" << py_.size() << std::endl; 
-        // std::cout << "max py_=" << py_.maxCoeff() << std::endl; 
 
-        // compute ZtildeTZtilde_
+        // compute ZtildeTZtilde_ and invert it 
         for(auto i=0; i < n_groups_; ++i){
 
             // For each group, consider Z^T Z
@@ -200,67 +195,71 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             
         }
 
-        //std::cout << "mqsrpde fpirls_compute step() here 1" << std::endl; 
-
         // compute weights
         for(int i=0; i < n_groups_; ++i){
-            //std::cout << "i=" << i << std::endl; 
-            //std::cout << "mqsrpde fpirls_compute step() here i=" << i << std::endl; 
-            //std::cout << "mqsrpde fpirls_compute step() here 2" << std::endl;
 
             // Compute the current block with the Woodbury identity
             pW_(i) = - Z_(i) * ZtildeTZtilde_(i).solve( Z_(i).transpose() );  // I_ni - Z_i * (ZtildeTZtilde_i_)^(-1) * Z_i^T
-            //std::cout << "mqsrpde fpirls_compute step() here 3" << std::endl; 
-            //std::cout << "pW_(i) dim =" << pW_(i).rows() << ";" << pW_(i).cols() << std::endl;
 
             // Add the identity matrix (1 on the diagonal)
             for(int k=0; k < group_sizes_[i]; ++k){
                 pW_(i)(k,k) = 1 + pW_(i)(k,k);	
             }
-            //std::cout << "mqsrpde fpirls_compute step() here 4" << std::endl; 
 	    }
 
-        //std::cout << "mqsrpde fpirls_compute step() here 2" << std::endl; 
+        // set weights and pseudo-observations to zero where there are missing values
+        for(std::size_t i=0; i<n_locs(); ++i){   // qui voglio loopare su tutto il vettore => n_locs()
+        
+            if(Base::nan_mask()[i]){
+                
+                py_(i)=0.; 
+                
+                int block_idx = group_ids_(i); 
+                std::vector<unsigned int> glob_idxs_of_block = loc_to_glob_map_[block_idx]; 
+                unsigned int block_row_idx; 
+                for(int idx=0; idx < glob_idxs_of_block.size(); ++idx){
+                    if(glob_idxs_of_block[idx] == i){
+                        block_row_idx = idx; 
+                    }
+                }
+                
+                for(int col_idx=0; col_idx<group_sizes_[block_idx]; ++col_idx){
+                    pW_(block_idx)(block_row_idx, col_idx) = 0.;   // NOTA: se ho già settato le righe di Z a zero, questo set è inutile perchè questi sono già zeri
+                }
 
-  
+            }
+        
+        }
+
+
     }
+
     // updates mean vector \mu after WLS solution
     void fpirls_update_step(const DMatrix<double>& hat_f, [[maybe_unused]] const DMatrix<double>& hat_beta) {
-        //std::cout << "msrpde fpirls_update_step here 0" << std::endl; 
+
         mu_ = hat_f;   // fn + X%*%beta (no random part here!)
-        //std::cout << "msrpde fpirls_update_step here 1" << std::endl;
+
         compute_bhat();
-        //std::cout << "msrpde fpirls_update_step here 2" << std::endl;
 	    compute_sigma_sq_hat();
-        //std::cout << "msrpde fpirls_update_step here 3" << std::endl;
         build_LTL();
-        //std::cout << "msrpde fpirls_update_step here 4" << std::endl;
         compute_C();
-        //std::cout << "msrpde fpirls_update_step here 5" << std::endl;
 
         for(auto k=0; k<p(); ++k){
             Delta_(k) = C_(k,k) * std::sqrt(n_groups_);
         }
-        //std::cout << "msrpde fpirls_update_step here 6" << std::endl;
 
     }
+
     // returns the data loss (J_parametric)
     double data_loss() const { 
-        // ATT: capire se vogliamo usare la loss approssimata di fpirls o quella esatta. 
-        // Per ora implementiamo quella esatta per eventuali confronti con Melchionda
 
         // J_parametric = -0.5*(mp-n)log(sigma^2) - 0.5*(|| Delta*b_i ||/ sigma)^2 + m*log(det(Delta))
 
         double data_loss_value = 0.;
 
-        // std::cout << "sigma_sq_hat_ = " << sigma_sq_hat_ << std::endl; 
-        // std::cout << "msrpde in data loss, std::log(sigma_sq_hat_) = " << std::log(sigma_sq_hat_) << std::endl;
-        // std::cout << "n_groups_ = " << n_groups_  << std::endl;  
-        // std::cout << "n_obs() = " <<  n_obs() <<  std::endl;  
-        // std::cout << "p() = " << p() << std::endl; 
-        // std::cout << "( n_groups_*p() - n_obs() ) = " << ( n_groups_*p() - n_obs() ) << std::endl; 
-
-        int signed_int = n_groups_*p() - n_obs();   // cast to int to avoid overflow
+        // cast to int to avoid overflow
+        int signed_int = n_groups_*p() - n_obs();  
+        
         data_loss_value -= signed_int * std::log(sigma_sq_hat_);
         
         for(auto i=0; i < n_groups_; ++i){
@@ -282,6 +281,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
 
     const DVector<double>& py() const { return py_; }
     const SpMatrix<double>& pW() {   // ATT: tolto const perchè devo convertire pW_ in matrice Sparsa
+
         // Convert pW_ in a SpMatrix (needed for fpirls temporary implementation)
         // ATT: pW_ stores the single blocks, so to build W we should use the global to local map
 
@@ -307,16 +307,14 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             const auto pw_block = pW_(k); 
             for(auto i=0; i<group_sizes_[k]; ++i){
                 for(auto j=0; j<group_sizes_[k]; ++j){
-                    triplet_list.emplace_back(ids_perm_[k][i], ids_perm_[k][j], pw_block(i, j)); 
+                    triplet_list.emplace_back(loc_to_glob_map_[k][i], loc_to_glob_map_[k][j], pw_block(i, j)); 
                 }
             }
 	    }
 
-
         // finalize construction
         sparse_mat_weights_.setFromTriplets(triplet_list.begin(), triplet_list.end());
         sparse_mat_weights_.makeCompressed();
-
 
         return sparse_mat_weights_;
     }
@@ -337,6 +335,11 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     const SpMatrix<double>& Psi_debug() const { return Psi(); }; 
     const SpMatrix<double>& R0_debug() const { return Base::R0(); };
     const SpMatrix<double>& R1_debug() const { return Base::R1(); };
+    const SpMatrix<double>& PT_debug() const { return Base::PT(); };
+    const SpMatrix<double>& P0_debug() const { return Base::P0(); };
+    const SpMatrix<double>& P1_debug() const { return Base::P1(); };
+    const SpMatrix<double>& R0_space_debug() const { return Base::R0_space(); };
+    const SpMatrix<double>& R1_space_debug() const { return Base::R1_space(); };
  
     // setter 
     void set_ids_groups(DVector<unsigned int> Rgroup_ids){  // Rgroup_ids: vector storing the id (integer) that identifies each observation to a specific group
@@ -346,23 +349,24 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         n_groups_ = unique_ids.size();
         std::cout << "Number of groups = " << n_groups_ << std::endl; 
 
+        group_ids_ = Rgroup_ids - DVector<unsigned int>::Ones(Rgroup_ids.size()); // ATT: aggiunto -1 perchè come input dò Rgroup_ids che parte a contare da 1 (anche Melchionda lo fa, ma nel wrapper)
+
         // Extract the size of each group
         group_sizes_.resize(n_groups_);
-        ids_perm_.resize(n_groups_);
+        loc_to_glob_map_.resize(n_groups_);
 
-        //std::cout << "Rgroup_ids dim=" << Rgroup_ids.size() << std::endl; 
-        for(int i=0; i < Rgroup_ids.size(); ++i){  // ATT: cambiato rispetto a Melchionda 
-            int i_loc = Rgroup_ids(i)-1;    // ATT: aggiunto -1 perchè i groups ids partono a contare da 1
-            group_sizes_[i_loc] += 1;	    // update the counter of the correct group
-            ids_perm_[i_loc].push_back(i);  // map the global index to the local one
+        for(int i=0; i < Rgroup_ids.size(); ++i){  // ATT: Melchionda lo chiama m_ che però non è il #gruppi ma l'ampiezza campionaria, quindi OK
+            int i_loc = Rgroup_ids(i)-1;           // ATT: aggiunto -1 per stesso motivo di sopra 
+            group_sizes_[i_loc] += 1;	           // update the counter of the correct group
+            loc_to_glob_map_[i_loc].push_back(i);  // map the local index to the global one
         }
 
-        // // debug: print ids_perm_
-        // std::cout << "printing ids_perm_" << std::endl; 
-        // for(int k=0; k<ids_perm_.size(); ++k){
+        // // debug: print loc_to_glob_map_
+        // std::cout << "printing loc_to_glob_map_" << std::endl; 
+        // for(int k=0; k<loc_to_glob_map_.size(); ++k){
         //     std::cout << std::endl; 
-        //     for(int j=0; j<ids_perm_[k].size(); ++j){
-        //         std::cout << ids_perm_[k][j] << "; ";  
+        //     for(int j=0; j<loc_to_glob_map_[k].size(); ++j){
+        //         std::cout << loc_to_glob_map_[k][j] << "; ";  
         //     }    
         // }
 
@@ -381,9 +385,20 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         fpirls_.set_max_iter(max_iter);   // M: update variable in fpirls object
     }
 
-    // GCV support (TODO: ATT al discorso normalizzazione)
-    double norm(const DMatrix<double>& op1, const DMatrix<double>& op2) const { return (op1 - op2).squaredNorm(); }
-      
+    void set_miss_rows_Z_to_zero(bool flag) { set_miss_rows_Z_to_zero_ = flag; } 
+
+    // GCV support -> NON sommo le osservazioni mascherate !
+    double norm(const DMatrix<double>& op1, const DMatrix<double>& op2) const {
+
+        double result = 0;
+        for (int i = 0; i < n_locs(); ++i) {
+            if (!Base::masked_obs()[i]) result += (op2.coeff(i, 0) - op1.coeff(i, 0))*(op2.coeff(i, 0) - op1.coeff(i, 0));
+        }
+        return result;  
+
+    }      
+
+
    private:
     DVector<double> py_; 
     SpMatrix<double> sparse_mat_weights_ {}; 
@@ -395,7 +410,8 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
 
     unsigned int n_groups_; 
     std::vector<unsigned int> group_sizes_; 
-    std::vector<std::vector<unsigned int>> ids_perm_; 
+    std::vector<std::vector<unsigned int>> loc_to_glob_map_; 
+    DVector<unsigned int> group_ids_; 
 
     DVector<DMatrix<double>> Z_;  // vectors of blocks storing the random effect matrices Z_i
     DVector<DMatrix<double>> ZTZ_;  // vectors of blocks storing the random effect matrices Z_i^T * Z_i
@@ -416,6 +432,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     double min_J_; 
     SpMatrix<double> pW_init_; 
     DVector<double> Delta_init_; 
+    bool set_miss_rows_Z_to_zero_ = true; 
 
     // helper functions
     DVector<double> vector_indexing(const DVector<double>& big_vector, const std::vector<unsigned int> ids){
@@ -437,9 +454,6 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
 
         // Reconstruct the block using loc_to_glob_map
         for (unsigned int i = 0; i < row_ids.size(); ++i) {
-            //for (unsigned int j = 0; j < big_matrix.cols(); ++j) {
-                //small_matrix(i, j) = big_matrix(row_ids[i], j);                
-            //}
             small_matrix.row(i) = big_matrix.row(row_ids[i]);
         }
         return small_matrix;
@@ -449,15 +463,24 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     void compute_bhat() { 
         b_hat_.resize(n_groups_); 
         for(auto i=0; i < n_groups_; ++i){
-            DVector<double> res_i = vector_indexing(y(), ids_perm_[i]);
-            res_i -= vector_indexing(mu_, ids_perm_[i]);   // mu_ does NOT contain the random effect
+            DVector<double> res_i = vector_indexing(y(), loc_to_glob_map_[i]);
+            res_i -= vector_indexing(mu_, loc_to_glob_map_[i]);   // here mu_ does NOT contain the random effect
+            
+            // M: for missing (ATT aggiunto rispetto a Melchionda)
+            for(int j=0; j<res_i.size(); ++j){
+                if(Base::nan_mask()[loc_to_glob_map_[i][j]]){
+                    res_i(j) = 0.; 
+                }
+            }
+
+            
             b_hat_[i] = ZtildeTZtilde_(i).solve( Z_(i).transpose() * res_i );
         }
     }
     
     DMatrix<double> lmbQ_model(const DMatrix<double>& x) const {
 
-        SpMatrix<double> W = fpirls_.solver().W(); // we need to take it from fpirls since we are not at convergence yet, so RegressionBase does not store the correct matrices
+        SpMatrix<double> W = fpirls_.solver().W(); // we need to take it from fpirls_ since we are not at convergence yet, so RegressionBase does not store the correct matrices!
 
         if (!has_covariates()) return W * x;
         DMatrix<double> v = X().transpose() * W * x;   // X^\top*W*x
@@ -467,15 +490,18 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         DMatrix<double> z = invXtWX.solve(v);          // (X^\top*W*X)^{-1}*X^\top*W*x
         // compute W*x - W*X*z = W*x - (W*X*(X^\top*W*X)^{-1}*X^\top*W)*x = W(I - H)*x = Q*x
         return W * x - W * X() * z;
-    }
-    
+    }   
     double compute_edf(){
 
-        // M: nota: inefficient computation !! 
+        // NOTA: Se scegliamo la strategia di Melchionda, per cui gli edf ci servono solo a convergenza fpirls, 
+        //       si puo' modificare questo codice chiamando T, lmbQ direttamente da Base (che è più efficiente 
+        //       in quanto qui per semplicità stiamo trasformando tutto in matrici dense). 
+        //       Se vogliamo la strategia di Pigani, ci servono gli edf ad ogni iterazione di fpirls, quindi
+        //       bisogna implementare lmbQ con i pesi di quell'iterazione corrente (vedi lmbQ_model).
 
-        //std::cout << "in compute_edf, lambda_D() = " << lambda_D() << std::endl;
-        SpMatrix<double> P = lambda_D() * (Base::R1().transpose() * Base::invR0().solve(Base::R1()));   // space-only !! 
-        DMatrix<double> T = PsiTD() * lmbQ_model(Psi()) + P;
+        // M: nota: very inefficient computation !! 
+        
+        DMatrix<double> T = PsiTD() * lmbQ_model(Psi()) + Base::P();  // nota: non posso chiamare direttamente Base::T perchè ci serve il nostro lmbQ !
 
         Eigen::PartialPivLU<DMatrix<double>> invT = T.partialPivLu();
         DMatrix<double> E = PsiTD();          
@@ -491,14 +517,35 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     void compute_sigma_sq_hat(bool edf_flag=false) {
 
         sigma_sq_hat_ = 0.;	
-        for(auto i=0; i < n_groups_; i++){ 
-            DVector<double> mu_i = vector_indexing(mu_, ids_perm_[i]);
-            DVector<double> res_i = vector_indexing(y(), ids_perm_[i]);
-            res_i -= ( mu_i + Z_(i)*b_hat_[i] );   // note: here the residual contains the random effect too
-            // std::cout << "L inf res_i = " << res_i.cwiseAbs().maxCoeff() << std::endl; 
-            sigma_sq_hat_ += res_i.dot(res_i);
+
+        // set to fit vector zeros where there are missing values, so that the residual is computed correctly
+        DVector<double> fit_adj = mu_;    
+        for(int j=0; j<fit_adj.size(); ++j){
+            if(Base::nan_mask()[j]){
+                fit_adj(j) = 0.; 
+            }
         }
 
+        for(auto i=0; i < n_groups_; i++){ 
+
+            DVector<double> mu_i = vector_indexing(fit_adj, loc_to_glob_map_[i]);
+            DVector<double> res_i = vector_indexing(y(), loc_to_glob_map_[i]);  // note: y() has zeros in correspondence of missing values
+            
+            // res_i -= ( mu_i + Z_(i)*b_hat_[i] );   //  here the residual contains the random effect too 
+            // // note: sum only over observed data (funziona se nell'init abbiamo settato in Z_ zero rows in correspondence of missing values)
+
+            // M: set zeros in random part for missing values case (when Z_ is not zeroed)
+            DVector<double> Zb_i = Z_(i)*b_hat_[i];
+            for(int j=0; j<res_i.size(); ++j){
+                if(Base::nan_mask()[loc_to_glob_map_[i][j]]){
+                    Zb_i(j) = 0.; 
+                } 
+            }
+            res_i -= ( mu_i + Zb_i );   //  here the residual contains the random effect too 
+            // note: sum only over observed data
+
+            sigma_sq_hat_ += res_i.dot(res_i);
+        }
 
         // // Versione Pigani (per test 1-tris)
         // std::cout << "ATT: RUNNING PIGANI sigma2 computaiton!!" << std::endl;
@@ -513,13 +560,15 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         if(edf_flag){
             double edf = compute_edf(); 
             if(has_covariates()){
-                edf += q();   // p()? Pigani non lo mette  
+                edf += q();   // +m*p()?
             }
             sigma_sq_hat_ /= (n_obs()-edf); 
-        } else{
-            sigma_sq_hat_ /= n_obs(); 
-        }
 
+            std::cout << "edf = " << std::setprecision(16) << edf << std::endl;
+
+        } else{
+            sigma_sq_hat_ /= n_obs();  
+        }
   
         
     }

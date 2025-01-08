@@ -51,6 +51,10 @@ class SpaceTimeSeparableBase : public SpaceTimeBase<Model, SpaceTimeSeparable> {
         // compute tensorized matrices
         R0_ = Kronecker(time_pde_.mass(), space_pde_.mass());    // P0 \kron R0
         R1_ = Kronecker(time_pde_.mass(), space_pde_.stiff());   // P0 \kron R1
+
+        // M for debug 
+        R0_space_ = space_pde_.mass();       
+        R1_space_ = space_pde_.stiff();
     }
     // setters
     void set_temporal_locations(const DVector<double>& time_locations) { time_locs_ = time_locations; }
@@ -75,6 +79,11 @@ class SpaceTimeSeparableBase : public SpaceTimeBase<Model, SpaceTimeSeparable> {
     // matrices proper of separable regularization
     const SpMatrix<double>& P0() const { return time_pde_.mass(); }
     const SpMatrix<double>& P1() const { return time_pde_.stiff(); }
+
+    // M for debug 
+    const SpMatrix<double>& R0_space() const { return R0_space_; }
+    const SpMatrix<double>& R1_space() const { return R1_space_; }
+
     const SpMatrix<double>& Phi() const { return Phi_; }
     inline int n_temporal_locs() const { return is_empty(time_locs_) ? time_.rows() : time_locs_.rows(); }
     const DVector<double>& time_locs() const { return is_empty(time_locs_) ? time_ : time_locs_; }
@@ -122,6 +131,10 @@ class SpaceTimeSeparableBase : public SpaceTimeBase<Model, SpaceTimeSeparable> {
     mutable SpMatrix<double> PD_;   // discretization of space regularization: (R1^T*R0^{-1}*R1) \kron P0
     mutable SpMatrix<double> PT_;   // discretization of time regularization:  (R0 \kron P1)
     mutable fdapde::SparseLU<SpMatrix<double>> invR0_;
+
+    // M for debug 
+    SpMatrix<double> R0_space_;       
+    SpMatrix<double> R1_space_;    
 };
 
 }   // namespace models
