@@ -90,6 +90,9 @@ class GCV {
         }
     
         gcvs_.emplace_back(gcv_value);
+
+        std::cout << "end of gcv_impl in gcv" << std::endl;
+
         return gcv_value;
     }
    public:
@@ -128,7 +131,9 @@ class GCV {
         double dor = model_.n_obs() - (model_.q() + trS);   // (n - (q + Tr[S])
         
         DVector<double> fit = model_.fitted();  // M per random effect 
+
         if(model_.has_random_covariates()){
+            std::cout << "for debug: the model has random covariates" << std::endl;
             fit += model_.random_part(); 
         }
 

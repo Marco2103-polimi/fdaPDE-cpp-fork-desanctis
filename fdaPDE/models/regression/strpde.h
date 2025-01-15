@@ -89,8 +89,6 @@ class STRPDE<SpaceTimeSeparable, monolithic> :
             std::cout << "end inversion A" << std::endl;
             return;
         }
-
-        std::cout << "end init strpde" << std::endl;
     }
     void solve() {
         fdapde_assert(y().rows() != 0);

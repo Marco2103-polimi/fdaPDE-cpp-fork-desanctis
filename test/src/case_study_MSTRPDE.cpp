@@ -45,17 +45,23 @@ using fdapde::testing::read_csv;
 // gcv 
 TEST(case_study_mstrpde_gcv, NO2) {
 
-    std::string rescale_data = "_rescale";   // "" "_rescale"
-    const bool new_data = true; 
-    if(new_data){
-        rescale_data += "_NEW";
+    const bool infraday_analysis = true; 
+    std::string results_str; 
+    std::string month; 
+    std::string day_chosen; 
+    if(infraday_analysis){
+        month = "gennaio"; 
+        day_chosen = "11"; 
+        results_str = "results_infraday";
+    } else{
+        results_str = "results"; 
     }
-    const bool normalized_loss_flag = true;  // true to normalize the loss
 
-    std::string pde_type = "";  // ""  "tr" 
-    const std::string u_string = ""; 
+    std::string rescale_data = "_sqrt";   // "", "_rescale", oppure inserisci la trasformazione che vuoi 
+    const bool normalized_loss_flag = false;  // true to normalize the loss
 
-    std::string gcv_type = "exact";   // "exact" "stochastic"  ---> MODIFICA ANCHE GIU'!
+    std::string pde_type = "tr";  // ""  "tr" 
+    const std::string u_string = "1e-1"; 
 
     const unsigned int num_fpirls_iter = 15;  
 
@@ -95,36 +101,51 @@ TEST(case_study_mstrpde_gcv, NO2) {
         covariate_type_for_data = "_sqrt.dens_sqrt.elev.original"; 
     }
 
-    const std::string mesh_type = "canotto_coarse";  // GCV sulla mesh coarse!
-    const std::string mesh_type_param_casc = mesh_type; 
+    const std::string mesh_type = "canotto_coarse"; 
 
-    std::string est_type = "mixed";    // mean mixed
+    std::string est_type = "mean";    // mean mixed
 
     // Marco 
     std::string path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/case_studies/mixed_NO2"; 
-    std::string path_data = path + "/data/space-time";  
+
+    std::string path_data;  
+    if(!infraday_analysis){
+        path_data = path + "/data/space-time";  
+    } else{
+        path_data = path + "/data_infraday/" + month + "/day_" + day_chosen;  
+    }
+   
     std::string solutions_path; 
 
+    std::string sigla_model; 
     if(est_type == "mean"){
-        if(model_type == "nonparam"){
-            solutions_path = path + "/results/STRPDE/" + model_type + "/" + mesh_type;
-        } else{
-            solutions_path = path + "/results/STRPDE/" + model_type + "/" + mesh_type + "/" + covariate_type;
-        }
-        if(pde_type != "")
-            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
+        sigla_model = "STRPDE"; 
     }
-
     if(est_type == "mixed"){
+        sigla_model = "MSTRPDE"; 
+    }
+
+
+    if(!infraday_analysis){
         if(model_type == "nonparam"){
-            solutions_path = path + "/results/MSTRPDE/" + model_type + "/" + mesh_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type;
         } else{
-            solutions_path = path + "/results/MSTRPDE/" + model_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
         }
         if(pde_type != "")
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
+    } else{
+        if(model_type == "nonparam"){
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type;
+        } else{
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
+        }
+        if(pde_type != "")
+            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;             
     }
 
+
+    std::cout << "data path: " << path_data << std::endl; 
     std::cout << "solution path: " << solutions_path << std::endl; 
     
     // lambdas sequence -> con loss normalizzate 
@@ -132,17 +153,17 @@ TEST(case_study_mstrpde_gcv, NO2) {
     double seq_start_space; double seq_end_space; double seq_by_space; 
     double seq_start_time; double seq_end_time; double seq_by_time; 
     if(est_type == "mean"){
-        seq_start_space = -6.0; 
+        seq_start_space = -2.0; 
         seq_end_space = -2.0; 
         seq_by_space = 1.0; 
 
-        seq_start_time = -6.0; 
-        seq_end_time = -5.0; 
-        seq_by_time = 1.0; 
+        seq_start_time = -3.0; 
+        seq_end_time = -3.0; 
+        seq_by_time = 2.0; 
     }
     if(est_type == "mixed"){
-        seq_start_space = -3.0; 
-        seq_end_space = +2.0; 
+        seq_start_space = -9.5; 
+        seq_end_space = -3.5; 
         seq_by_space = 1.0; 
 
         seq_start_time = -5.0; 
@@ -169,12 +190,23 @@ TEST(case_study_mstrpde_gcv, NO2) {
         }
     }
     std::cout << "dim lambdas mat: " << lambdas_mat.rows() << " " << lambdas_mat.cols() << std::endl;
+    std::cout << "max lambdas mat: " << lambdas_mat.maxCoeff() << std::endl;
+    std::cout << "min lambdas mat: " << lambdas_mat.minCoeff() << std::endl;
 
     // define spatial domain
     MeshLoader<Triangulation<2, 2>> domain("mesh_lombardia_" + mesh_type);   
+
     // define time domain 
-    const double t0 = 0.0;
-    const double tf = 22.0;
+    double t0;
+    double tf;
+    if(!infraday_analysis){
+        t0 = 0.0;
+        tf = 22.0;
+    } else{
+        t0 = 0.0;
+        tf = 23.0;
+    }
+
     const unsigned int M = 11;  // number of time mesh nodes 
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
@@ -184,9 +216,11 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
     y = read_csv<double>(path_data + "/y" + rescale_data + ".csv"); 
     std::cout << "dim y " << y.rows() << " " << y.cols() << std::endl;
+
     // check number of missing values
     int count_na = 0;
     double max_y = -1000.; // for debug
+    double min_y = 1000.; // for debug
     for (int i = 0; i < y.rows(); ++i) {
         for (int j = 0; j < y.cols(); ++j) {
             if(std::isnan(y(i,j))) {
@@ -194,11 +228,14 @@ TEST(case_study_mstrpde_gcv, NO2) {
             } else{
                 if(y(i,j) > max_y)
                     max_y = y(i,j);
+                if(y(i,j) < min_y)
+                    min_y = y(i,j);
             }
         }
     }
     std::cout << "num missing values = " << count_na << std::endl;
     std::cout << "max y = " << max_y << std::endl;
+    std::cout << "min y = " << min_y << std::endl;
 
 
     time_locs = read_csv<double>(path_data + "/time_locs.csv");  
@@ -232,34 +269,39 @@ TEST(case_study_mstrpde_gcv, NO2) {
         df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);
    
 
-    // // Laplacian + transport 
-    // if(pde_type == "")
-    //     std::cout << "ATT You want to run a model with only the Laplacian but you are using a PDE with transport"; 
-    // DMatrix<double, Eigen::RowMajor> b_data; 
-    // DMatrix<double> u; 
-    // b_data  = read_csv<double>(path_data + "/" + mesh_type_param_casc + "/b_" + u_string + "_opt_" + cascading_model_type +  covariate_type_for_data + ".csv");
-    // u  = read_csv<double>(path_data + "/" + mesh_type_param_casc + "/u_" + u_string + "_opt_" + cascading_model_type  + covariate_type_for_data + ".csv");    
-    // std::cout << "u dimensions : " << u.rows() << " , " << u.cols() << std::endl;
-    // std::cout << "b dimensions : " << b_data.rows() << " , " << b_data.cols() << std::endl ; 
-    // DiscretizedVectorField<2, 2> b(b_data);    
-    // auto L = -laplacian<FEM>() + advection<FEM>(b); 
-    
-    // Only Laplacian
-
-    // rhs 
-    DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
-
-    // define regularizing PDE  in space
-    auto Ld = -laplacian<FEM>();   
+    // Laplacian + transport 
+    if(pde_type == "")
+        std::cout << "ATT You want to run a model with only the Laplacian but you are using a PDE with transport"; 
+    DMatrix<double, Eigen::RowMajor> b_data; 
+    DMatrix<double> u; 
+    std::cout << "path b: " << path_data + "/" + mesh_type + "/b_" + u_string + "_opt_" + cascading_model_type +  covariate_type_for_data + ".csv" << std::endl; 
+    b_data  = read_csv<double>(path_data + "/" + mesh_type + "/b_" + u_string + "_opt_" + cascading_model_type +  covariate_type_for_data + ".csv");
+    u  = read_csv<double>(path_data + "/" + mesh_type + "/u_" + u_string + "_opt_" + cascading_model_type  + covariate_type_for_data + ".csv");    
+    std::cout << "u dimensions : " << u.rows() << " , " << u.cols() << std::endl;
+    std::cout << "b dimensions : " << b_data.rows() << " , " << b_data.cols() << std::endl ; 
+    DiscretizedVectorField<2, 2> b(b_data);    
+    auto Ld = -laplacian<FEM>() + advection<FEM>(b); 
     PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
+    // // Only Laplacian
+
+    // // rhs 
+    // DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
+
+    // // define regularizing PDE  in space
+    // auto Ld = -laplacian<FEM>();   
+    // PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
+    
+
+
+
     // define regularizing PDE in time
     auto Lt = -bilaplacian<SPLINE>();
     PDE<Triangulation<1, 1>, decltype(Lt), DMatrix<double>, SPLINE, spline_order<3>> time_penalty(time_mesh, Lt);
 
 
     // // Save quadrature nodes 
-    // DMatrix<double> quad_nodes = problem.quadrature_nodes();  
+    // DMatrix<double> quad_nodes = space_penalty.quadrature_nodes();  
     // std::cout << "rows quad nodes = " << quad_nodes.rows() << std::endl; 
     // std::cout << "cols quad nodes = " << quad_nodes.cols() << std::endl; 
     // std::ofstream file_quad(path_data + "/" + mesh_type + "/quadrature_nodes.csv");
@@ -298,8 +340,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
         // optimize GCV
         Grid<fdapde::Dynamic> opt;
         opt.optimize(GCV, lambdas_mat);
-        SVector<1> best_lambda = opt.optimum();
-
+        best_lambda = opt.optimum();
 
         std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
 
@@ -354,6 +395,8 @@ TEST(case_study_mstrpde_gcv, NO2) {
         model.set_ids_groups(ids_groups); 
 
         model.set_fpirls_max_iter(num_fpirls_iter); 
+
+        model.init();
 
         // define GCV function and grid of \lambda_D values
         auto GCV = model.gcv<ExactEDF>();
@@ -413,17 +456,24 @@ TEST(case_study_mstrpde_gcv, NO2) {
 // run 
 TEST(case_study_mstrpde_run, NO2) {
 
-    std::string rescale_data = "_rescale";   // "" "_rescale"
-    const bool new_data = true; 
-    if(new_data){
-        rescale_data += "_NEW";
+    const bool infraday_analysis = true; 
+    std::string results_str; 
+    std::string month; 
+    std::string day_chosen; 
+    if(infraday_analysis){
+        month = "gennaio"; 
+        day_chosen = "11"; 
+        results_str = "results_infraday";
+    } else{
+        results_str = "results"; 
     }
-    const bool normalized_loss_flag = true;  // true to normalize the loss
 
-    std::string pde_type = "";  // ""  "tr" 
-    const std::string u_string = ""; 
 
-    std::string gcv_type = "exact";   // "exact" "stochastic"  ---> MODIFICA ANCHE GIU'!
+    std::string rescale_data = "_sqrt";   // "", "_rescale", oppure inserisci la trasformazione che vuoi 
+    const bool normalized_loss_flag = false;  // true to normalize the loss
+
+    std::string pde_type = "tr";  // ""  "tr" 
+    const std::string u_string = "1e-1"; 
 
     const unsigned int num_fpirls_iter = 15;  
 
@@ -464,52 +514,74 @@ TEST(case_study_mstrpde_run, NO2) {
     }
 
     const std::string mesh_type = "canotto_fine";  // la run sulla mesh fine!
-    const std::string mesh_gcv_type = "canotto_coarse";  
-    const std::string mesh_type_param_casc = mesh_type; 
+    const std::string mesh_gcv_type = "canotto_coarse";    
 
-    std::string est_type = "mixed";    // mean mixed
+    std::string est_type = "mean";    // mean mixed
 
     // Marco 
     std::string path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/case_studies/mixed_NO2"; 
-    std::string path_data = path + "/data/space-time";  
-    std::string solutions_path; std::string solutions_path_gcv; 
-
-    if(est_type == "mean"){
-        if(model_type == "nonparam"){
-            solutions_path = path + "/results/STRPDE/" + model_type + "/" + mesh_type;
-            solutions_path_gcv = path + "/results/STRPDE/" + model_type + "/" + mesh_gcv_type;
-        } else{
-            solutions_path = path + "/results/STRPDE/" + model_type + "/" + mesh_type + "/" + covariate_type;
-            solutions_path_gcv = path + "/results/STRPDE/" + model_type + "/" + mesh_gcv_type + "/" + covariate_type;
-        }
-        if(pde_type != ""){
-            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;
-            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string; 
-        }
-           
+ 
+    std::string path_data;  
+    if(!infraday_analysis){
+        path_data = path + "/data/space-time";  
+    } else{
+        path_data = path + "/data_infraday/" + month + "/day_" + day_chosen;  
     }
 
+
+    std::string solutions_path; std::string solutions_path_gcv; 
+
+    std::string sigla_model; 
+    if(est_type == "mean"){
+        sigla_model = "STRPDE"; 
+    }
     if(est_type == "mixed"){
+        sigla_model = "MSTRPDE"; 
+    }
+
+    if(!infraday_analysis){
         if(model_type == "nonparam"){
-            solutions_path = path + "/results/MSTRPDE/" + model_type + "/" + mesh_type;
-            solutions_path_gcv = path + "/results/MSTRPDE/" + model_type + "/" + mesh_gcv_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_gcv_type;
         } else{
-            solutions_path = path + "/results/MSTRPDE/" + model_type + "/" + mesh_type + "/" + covariate_type;
-            solutions_path_gcv = path + "/results/MSTRPDE/" + model_type + "/" + mesh_gcv_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_gcv_type + "/" + covariate_type;
+        }
+        if(pde_type != ""){
+            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
+            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string; 
+        }
+            
+    } else{
+        if(model_type == "nonparam"){
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_gcv_type;
+        } else{
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_gcv_type + "/" + covariate_type;
         }
         if(pde_type != ""){
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;
-            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string; 
+            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string;
         }
+            
     }
 
     std::cout << "solution path: " << solutions_path << std::endl; 
 
     // define spatial domain
     MeshLoader<Triangulation<2, 2>> domain("mesh_lombardia_" + mesh_type);
+
     // define time domain 
-    const double t0 = 0.0;
-    const double tf = 22.0;
+    double t0;
+    double tf;
+    if(!infraday_analysis){
+        t0 = 0.0;
+        tf = 22.0;
+    } else{
+        t0 = 0.0;
+        tf = 23.0;
+    }
     const unsigned int M = 11;  // number of time mesh nodes 
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
@@ -551,28 +623,29 @@ TEST(case_study_mstrpde_run, NO2) {
         df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);
    
 
-    // // Laplacian + transport 
-    // if(pde_type == "")
-    //     std::cout << "ATT You want to run a model with only the Laplacian but you are using a PDE with transport"; 
-    // DMatrix<double, Eigen::RowMajor> b_data; 
-    // DMatrix<double> u; 
-    // b_data  = read_csv<double>(path_data + "/" + mesh_type_param_casc + "/b_" + u_string + "_opt_" + cascading_model_type +  covariate_type_for_data + ".csv");
-    // u  = read_csv<double>(path_data + "/" + mesh_type_param_casc + "/u_" + u_string + "_opt_" + cascading_model_type  + covariate_type_for_data + ".csv");    
-    // std::cout << "u dimensions : " << u.rows() << " , " << u.cols() << std::endl;
-    // std::cout << "b dimensions : " << b_data.rows() << " , " << b_data.cols() << std::endl ; 
-    // DiscretizedVectorField<2, 2> b(b_data);    
-    // auto L = -laplacian<FEM>() + advection<FEM>(b); 
-    
-
-    // Only Laplacian
-
-    // rhs 
-    DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
-
-    // define regularizing PDE  in space
-    auto Ld = -laplacian<FEM>();   
+    // Laplacian + transport 
+    if(pde_type == "")
+        std::cout << "ATT You want to run a model with only the Laplacian but you are using a PDE with transport"; 
+    DMatrix<double, Eigen::RowMajor> b_data; 
+    DMatrix<double> u; 
+    b_data  = read_csv<double>(path_data + "/" + mesh_type + "/b_" + u_string + "_opt_" + cascading_model_type +  covariate_type_for_data + ".csv");
+    u  = read_csv<double>(path_data + "/" + mesh_type + "/u_" + u_string + "_opt_" + cascading_model_type  + covariate_type_for_data + ".csv");    
+    std::cout << "u dimensions : " << u.rows() << " , " << u.cols() << std::endl;
+    std::cout << "b dimensions : " << b_data.rows() << " , " << b_data.cols() << std::endl ; 
+    DiscretizedVectorField<2, 2> b(b_data);    
+    auto Ld = -laplacian<FEM>() + advection<FEM>(b); 
     PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
+    // // Only Laplacian
+
+    // // rhs 
+    // DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
+
+    // // define regularizing PDE  in space
+    // auto Ld = -laplacian<FEM>();   
+    // PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
+    
+
     // define regularizing PDE in time
     auto Lt = -bilaplacian<SPLINE>();
     PDE<Triangulation<1, 1>, decltype(Lt), DMatrix<double>, SPLINE, spline_order<3>> time_penalty(time_mesh, Lt);
