@@ -157,22 +157,7 @@ class RegressionBase :
         if (!y_mask_.size()) y_mask_.resize(Base::n_locs());
         if (!nan_mask_.size()) nan_mask_.resize(Base::n_locs());
 
-        // compute q x q dense matrix X^\top*W*X and its factorization
-        if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
-            
-            W_ = (1.0/Base::n_locs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
-            model().runtime().set(runtime_status::require_W_update);
-
-        } else if (is_empty(W_)) {
-            // default to homoskedastic observations
-            W_ = (1.0/Base::n_locs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
-        }
-        // compute q x q dense matrix X^\top*W*X and its factorization
-        if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(WEIGHTS_BLK))) {
-            XtWX_ = X().transpose() * W_ * X();
-            invXtWX_ = XtWX_.partialPivLu();
-        }
-        // derive missingness pattern from observations vector (if changed)
+        // derive missingness pattern from observations vector (if changed)  -> M: ATT messo PRIMA del calcolo dei pesi, dato che se vogliamo normalizzare dobbiamo avere n_obs() e n_locs() updatate
         if (df_.is_dirty(OBSERVATIONS_BLK)) {
             n_nan_ = 0;
             for (int i = 0; i < df_.template get<double>(OBSERVATIONS_BLK).size(); ++i) {
@@ -184,6 +169,25 @@ class RegressionBase :
             }
             if (has_nan()) model().runtime().set(runtime_status::require_psi_correction);
         }
+
+        // compute q x q dense matrix X^\top*W*X and its factorization
+        if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
+            
+            W_ = (1.0/n_obs())*df_.template get<double>(WEIGHTS_BLK).col(0).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            // ATT: il fattore divide per i soli dati osservati, ma la dimensione è Base::n_locs() ! 
+            model().runtime().set(runtime_status::require_W_update);
+
+        } else if (is_empty(W_)) {
+            // default to homoskedastic observations
+            W_ = (1.0/Base::n_obs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            // ATT: il fattore divide per i soli dati osservati, ma la dimensione è Base::n_locs() ! 
+        }
+        // compute q x q dense matrix X^\top*W*X and its factorization
+        if (has_covariates() && (df_.is_dirty(DESIGN_MATRIX_BLK) || df_.is_dirty(WEIGHTS_BLK))) {
+            XtWX_ = X().transpose() * W_ * X();
+            invXtWX_ = XtWX_.partialPivLu();
+        }
+
         return;
     }
     // correct \Psi setting to zero rows corresponding to masked observations

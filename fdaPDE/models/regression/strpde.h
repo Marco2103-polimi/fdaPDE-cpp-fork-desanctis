@@ -114,8 +114,18 @@ class STRPDE<SpaceTimeSeparable, monolithic> :
         g_ = sol.tail(A_.rows() / 2);
         return;
     }
-    // GCV support
-    double norm(const DMatrix<double>& op1, const DMatrix<double>& op2) const { return (op1 - op2).squaredNorm(); }
+    // GCV support -> M: NON sommo le osservazioni mascherate !  -> coerente con le modifiche a analyze_data di RegressionBase
+    double norm(const DMatrix<double>& op1, const DMatrix<double>& op2) const { 
+
+        // return (op1 - op2).squaredNorm();
+
+        double result = 0;
+        for (int i = 0; i < n_locs(); ++i) {
+            if (!Base::masked_obs()[i]) result += (op2.coeff(i, 0) - op1.coeff(i, 0))*(op2.coeff(i, 0) - op1.coeff(i, 0));
+        }
+        return result;  
+
+    }
     // getters
     const SparseBlockMatrix<double, 2, 2>& A() const { return A_; }
     const fdapde::SparseLU<SpMatrix<double>>& invA() const { return invA_; }
