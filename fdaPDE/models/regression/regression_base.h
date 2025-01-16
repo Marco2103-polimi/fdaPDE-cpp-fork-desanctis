@@ -179,7 +179,7 @@ class RegressionBase :
 
         } else if (is_empty(W_)) {
             // default to homoskedastic observations
-            W_ = (1.0/Base::n_obs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
+            W_ = (1.0/n_obs())*DVector<double>::Ones(Base::n_locs()).asDiagonal(); // M aggiunta costante a causa della rinormalizzazione della loss; 
             // ATT: il fattore divide per i soli dati osservati, ma la dimensione è Base::n_locs() ! 
         }
         // compute q x q dense matrix X^\top*W*X and its factorization

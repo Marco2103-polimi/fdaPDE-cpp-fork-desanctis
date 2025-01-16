@@ -57,7 +57,6 @@ TEST(case_study_mstrpde_gcv, NO2) {
     }
 
     std::string rescale_data = "_sqrt";   // "", "_rescale", oppure inserisci la trasformazione che vuoi 
-    const bool normalized_loss_flag = false;  // true to normalize the loss
 
     std::string pde_type = "tr";  // ""  "tr" 
     const std::string u_string = "1e-1"; 
@@ -152,12 +151,12 @@ TEST(case_study_mstrpde_gcv, NO2) {
     double seq_start_space; double seq_end_space; double seq_by_space; 
     double seq_start_time; double seq_end_time; double seq_by_time; 
     if(est_type == "mean"){
-        seq_start_space = -6.5; 
-        seq_end_space = -3.5; 
+        seq_start_space = -8.0; 
+        seq_end_space = -2.0; 
         seq_by_space = 1.0; 
 
-        seq_start_time = -7.0; 
-        seq_end_time = -1.0; 
+        seq_start_time = -3.0; 
+        seq_end_time = -3.0; 
         seq_by_time = 2.0; 
     }
     if(est_type == "mixed"){
@@ -398,7 +397,6 @@ TEST(case_study_mstrpde_run, NO2) {
 
 
     std::string rescale_data = "_sqrt";   // "", "_rescale", oppure inserisci la trasformazione che vuoi 
-    const bool normalized_loss_flag = false;  // true to normalize the loss
 
     std::string pde_type = "tr";  // ""  "tr" 
     const std::string u_string = "1e-1"; 
