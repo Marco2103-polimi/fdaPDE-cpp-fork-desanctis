@@ -143,8 +143,10 @@ class RegressionBase :
     bool has_nan() const { return n_nan_ != 0; }                     // true if there are missing data
     // setters
     void set_mask(const BinaryVector<fdapde::Dynamic>& mask) {
+        std::cout << "set_mask in regression base" << std::endl;
         fdapde_assert(mask.size() == Base::n_locs());
         if (mask.any()) {
+            std::cout << "in mask.any()" << std::endl; 
             model().runtime().set(runtime_status::require_psi_correction);
             y_mask_ = mask;   // mask[i] == true, removes the contribution of the i-th observation from fit
         }
@@ -206,6 +208,23 @@ class RegressionBase :
         if (!y_mask_.size()) y_mask_.resize(Base::n_locs());
         if (!nan_mask_.size()) nan_mask_.resize(Base::n_locs());
 
+        // derive missingness pattern from observations vector (if changed)  ---> M: ATT spostato prima del calcolo dei pesi, perchè se vogliamo mettere la costante di normalizzazione, n_locs() e n_obs() devono essere updated. Altrimenti, se lascio questo "if" dopo il calcolo pesi, durante calcolo pesi n_locs() = n_obs() anche con missing data
+        if (df_.is_dirty(OBSERVATIONS_BLK)) {
+            std::cout << "in derive missingness pattern in analyze_data" << std::endl;
+            n_nan_ = 0; 
+            for (int i = 0; i < df_.template get<double>(OBSERVATIONS_BLK).size(); ++i) {
+                if (std::isnan(y()(i, 0))) {   // requires -ffast-math compiler flag to be disabled
+                    nan_mask_.set(i);
+                    n_nan_++;
+                    df_.template get<double>(OBSERVATIONS_BLK)(i, 0) = 0.0;   // zero out NaN
+                }
+            }
+            if (has_nan()) model().runtime().set(runtime_status::require_psi_correction);
+
+            std::cout << "end of derive missingness pattern: n_obs()=" << n_obs() << std::endl;
+            std::cout << "end of derive missingness pattern: Base::n_locs()=" << Base::n_locs() << std::endl;
+        }
+
         // compute q x q dense matrix X^\top*W*X and its factorization
         if (has_weights() && df_.is_dirty(WEIGHTS_BLK)) {
      
@@ -218,8 +237,9 @@ class RegressionBase :
             W_ = df_.template get<double>(WEIGHTS_BLK).sparseView(); 
             if(normalize_loss_){
                 std::cout << "loss normalized in regression base" << std::endl;
-                W_ = (1.0/n_obs())*df_.template get<double>(WEIGHTS_BLK).sparseView(); // M aggiunta costante a causa della rinormalizzazione della loss;                     
+                W_ = (1.0/n_obs())*df_.template get<double>(WEIGHTS_BLK).sparseView(); // M aggiunta costante a causa della normalizzazione della loss;                     
                 // ATT: messo n_obs(), non n_locs() (coerente con gcv.h e poi perchè è il vero numero di dati osservati)
+                // ATT: n_obs() è la costante di normalizzazione giusta, ma la dimensione di W è n_locs() !! 
                 // ATT: per confronto con Melchionda, commenta la riga sopra 
             }
 
@@ -240,7 +260,16 @@ class RegressionBase :
             // }
 
             // M
-            W_.resize(n_obs(), n_obs()); 
+            std::cout << "in analyze_data, has_weights=FALSE..." << std::endl;
+            std::cout << "n_obs()=" << n_obs() << std::endl;   
+            std::cout << "n_locs()=" << Base::n_locs() << std::endl; 
+            if(has_nan()){
+                std::cout << "has_nan()=TRUE" << std::endl; 
+            } else{
+                std::cout << "has_nan()=FALSE" << std::endl;
+            }  
+
+            W_.resize(Base::n_locs(), Base::n_locs());  // ATT: la dimensione è Base::n_locs(), la costante per eventuale normalizzazione sarà con n_obs() perchè (1): deve essere coerente con norm(); (2) è giusto dividere per i soli dati osservati, dato che sommo solo su quelli   
             W_.setIdentity(); 
             // std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
 
@@ -255,18 +284,7 @@ class RegressionBase :
             XtWX_ = X().transpose() * W_ * X();
             invXtWX_ = XtWX_.partialPivLu();
         }
-        // derive missingness pattern from observations vector (if changed)
-        if (df_.is_dirty(OBSERVATIONS_BLK)) {
-            n_nan_ = 0; 
-            for (int i = 0; i < df_.template get<double>(OBSERVATIONS_BLK).size(); ++i) {
-                if (std::isnan(y()(i, 0))) {   // requires -ffast-math compiler flag to be disabled
-                    nan_mask_.set(i);
-                    n_nan_++;
-                    df_.template get<double>(OBSERVATIONS_BLK)(i, 0) = 0.0;   // zero out NaN
-                }
-            }
-            if (has_nan()) model().runtime().set(runtime_status::require_psi_correction);
-        }
+
         return;
     }
     // correct \Psi setting to zero rows corresponding to masked observations
