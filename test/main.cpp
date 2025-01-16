@@ -23,7 +23,8 @@
 //#include "src/centering_test.cpp"
 
 // #include "src/case_study_MQSRPDE.cpp"
-#include "src/case_study_MQSRPDE_PM10.cpp"
+// #include "src/case_study_MQSRPDE_PM10.cpp"
+#include "src/temporary_file_ARPA.cpp"
 
 int main(int argc, char **argv){
   // start testing
