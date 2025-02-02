@@ -55,6 +55,9 @@ class RMSE {
             if (rmse_mask[i]) {                                    // not a missing value
                 double hat_y = model_.Psi().row(i) * model_.f();   // non-parametric field evaluation at i-th location
                 if (model_.has_covariates()) { hat_y += model_.X().row(i) * model_.beta(); }
+                // M aggiunto per random effects 
+                if (model_.has_random_covariates()) { hat_y += model_.random_part()(i); }
+
                 rmse += std::pow(model_.y()(i, 0) - hat_y, 2);
                 n++;
             }

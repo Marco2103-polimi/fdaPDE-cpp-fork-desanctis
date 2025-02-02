@@ -40,6 +40,12 @@ using fdapde::testing::MeshLoader;
 using fdapde::testing::read_mtx;
 using fdapde::testing::read_csv;
 
+// for k-fold
+#include "../../fdaPDE/calibration/kfold_cv.h"
+#include "../../fdaPDE/calibration/rmse.h"
+using fdapde::calibration::KCV;
+using fdapde::calibration::RMSE;
+
 
 
 // gcv 
@@ -51,11 +57,20 @@ TEST(case_study_mstrpde_gcv, NO2) {
     std::string day_chosen; 
     if(infraday_analysis){
         month = "gennaio"; 
-        day_chosen = "11"; 
+        day_chosen = "15"; 
         results_str = "results_infraday";
     } else{
         results_str = "results"; 
     }
+
+    unsigned int num_folds;
+    const std::string CV_type = "5-folds";     // "GCV"  "5-folds" "10-folds"
+    unsigned int seed_kfold; 
+    if(CV_type != "GCV"){
+        num_folds = 5; 
+        seed_kfold = 254; 
+    }
+    const bool shuffle_kfold = true; 
 
     std::string rescale_data = "_sqrt";   // "", "_rescale", oppure inserisci la trasformazione che vuoi 
     const bool normalized_loss_flag = true;  // true to normalize the loss
@@ -65,16 +80,32 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
     const unsigned int num_fpirls_iter = 15;  
 
+    // define time domain 
+    double t0;
+    double tf;
+    if(!infraday_analysis){
+        t0 = 0.0;
+        tf = 22.0;
+    } else{
+        t0 = 0.0;
+        tf = 23.0;
+    }
+
+    const unsigned int M = 6;  // number of time mesh nodes 
+    const std::string M_string = "_M" + std::to_string(M);
+    Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
+
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
-    const std::string model_type = "nonparam";  // "nonparam" "param"
+    const std::string model_type_root = "param";  // "nonparam" "param"
+    const std::string model_type = model_type_root + M_string; 
     const std::string  cascading_model_type = "nonparametric";  // "parametric" "nonparametric" 
     if(cascading_model_type == "parametric"){
         pde_type = pde_type + "_par"; 
     }
 
     std::string cov_strategy;
-    if(model_type == "param"){
+    if(model_type_root == "param"){
         cov_strategy = "7"; 
     } 
     const std::string covariate_type = "cov_" + cov_strategy; 
@@ -101,9 +132,14 @@ TEST(case_study_mstrpde_gcv, NO2) {
         covariate_type_for_data = "_sqrt.dens_sqrt.elev.original"; 
     }
 
-    const std::string mesh_type = "canotto_coarse"; 
+    const std::string mesh_type = "canotto_fine";    // fine come la run !! 
 
-    std::string est_type = "mean";    // mean mixed
+    std::string est_type = "mixed";    // mean mixed
+
+
+    bool has_fix_cov = (model_type == "param"); 
+    bool has_rnd_cov = (est_type == "mixed"); 
+
 
     // Marco 
     std::string path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/case_studies/mixed_NO2"; 
@@ -127,18 +163,18 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
 
     if(!infraday_analysis){
-        if(model_type == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type;
+        if(model_type_root == "nonparam"){
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
         }
         if(pde_type != "")
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
     } else{
-        if(model_type == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type;
+        if(model_type_root == "nonparam"){
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
         }
         if(pde_type != "")
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;             
@@ -153,22 +189,22 @@ TEST(case_study_mstrpde_gcv, NO2) {
     double seq_start_space; double seq_end_space; double seq_by_space; 
     double seq_start_time; double seq_end_time; double seq_by_time; 
     if(est_type == "mean"){
-        seq_start_space = -8.0; 
-        seq_end_space = -2.0; 
-        seq_by_space = 1.0; 
+        seq_start_space = -6.5; 
+        seq_end_space = -1.0; 
+        seq_by_space = 0.1; 
 
-        seq_start_time = -3.0; 
-        seq_end_time = -3.0; 
-        seq_by_time = 2.0; 
+        seq_start_time = -4.0; 
+        seq_end_time = -4.0; 
+        seq_by_time = 1.0; 
     }
     if(est_type == "mixed"){
-        seq_start_space = -9.5; 
-        seq_end_space = -3.5; 
-        seq_by_space = 1.0; 
+        seq_start_space = -6.0; 
+        seq_end_space = -4.0; 
+        seq_by_space = 0.1; 
 
-        seq_start_time = -5.0; 
-        seq_end_time = -5.0; 
-        seq_by_time = 1.0; 
+        seq_start_time = -8.0; 
+        seq_end_time = -8.0; 
+        seq_by_time = 2.0; 
     }
 
     std::vector<double> lambdas_d; std::vector<double> lambdas_t; std::vector<DVector<double>> lambdas_d_t;
@@ -193,22 +229,15 @@ TEST(case_study_mstrpde_gcv, NO2) {
     std::cout << "max lambdas mat: " << lambdas_mat.maxCoeff() << std::endl;
     std::cout << "min lambdas mat: " << lambdas_mat.minCoeff() << std::endl;
 
+
+    // std::vector<DVector<double>> lambdas_kfold;
+    // for(double xs = seq_start_space; xs <= seq_end_space; xs += seq_by_space) 
+    //     for(double xt = seq_start_time; xt <= seq_end_time; xt += seq_by_time) 
+    //         lambdas_kfold.push_back(SVector<2>(std::pow(10, xs), std::pow(10, xt)));
+
+
     // define spatial domain
     MeshLoader<Triangulation<2, 2>> domain("mesh_lombardia_" + mesh_type);   
-
-    // define time domain 
-    double t0;
-    double tf;
-    if(!infraday_analysis){
-        t0 = 0.0;
-        tf = 22.0;
-    } else{
-        t0 = 0.0;
-        tf = 23.0;
-    }
-
-    const unsigned int M = 11;  // number of time mesh nodes 
-    Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
     // import data and locs from files
     DMatrix<double> y; DMatrix<double> space_locs; DMatrix<double> time_locs; 
@@ -247,7 +276,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
     std::cout << "dim space_locs locs = " << space_locs.rows() << ";" << space_locs.cols() << std::endl;
     std::cout << "max(space_locs) = " << space_locs.maxCoeff() << std::endl;
 
-    if(model_type == "param"){
+    if(model_type_root == "param"){
         X = read_csv<double>(path_data + "/X" + covariate_type_for_data + ".csv");
         std::cout << "dim X " << X.rows() << " " << X.cols() << std::endl;
     }
@@ -264,7 +293,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
     BlockFrame<double, int> df;
     df.stack(OBSERVATIONS_BLK, y);  // ATT stack for space-time models
-    if(model_type == "param")
+    if(model_type_root == "param")
         df.insert(DESIGN_MATRIX_BLK, X);
     if(est_type == "mixed")
         df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);
@@ -283,17 +312,13 @@ TEST(case_study_mstrpde_gcv, NO2) {
     DiscretizedVectorField<2, 2> b(b_data);    
     auto Ld = -laplacian<FEM>() + advection<FEM>(b); 
     PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
-    
+
+
     // // Only Laplacian
-
-    // // rhs 
-    // DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
-
-    // // define regularizing PDE  in space
+    // DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1); // rhs 
     // auto Ld = -laplacian<FEM>();   
     // PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
-
 
 
     // define regularizing PDE in time
@@ -313,7 +338,13 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
 
     SVector<2> best_lambda;
-    std::cout << "-----------------------------GCV STARTS------------------------" << std::endl; 
+
+    if(CV_type == "GCV"){
+        std::cout << "-----------------------------GCV STARTS------------------------" << std::endl; 
+    } else{
+        std::cout << "-----------------------------" + CV_type + " STARTS------------------------" << std::endl; 
+    }
+       
 
     if(est_type == "mean"){
 
@@ -327,23 +358,65 @@ TEST(case_study_mstrpde_gcv, NO2) {
         model.set_data(df);
         model.init();
 
-        // define GCV function and grid of \lambda_D values
 
-        // // stochastic
-        // auto GCV = model.gcv<StochasticEDF>(MC_run, seed);
-        // if(return_smoothing){
-        //     std::cout << "ATTENTION: YOU WANT S, BUT STOCHASTIC GCV IS ACTIVATED"; 
-        // }
+        if(CV_type == "GCV"){
 
-        // exact
-        auto GCV = model.gcv<ExactEDF>();
-           
-        // optimize GCV
-        Grid<fdapde::Dynamic> opt;
-        opt.optimize(GCV, lambdas_mat);
-        best_lambda = opt.optimum();
+            // define GCV function and grid of \lambda_D values
 
-        std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+            // // stochastic
+            // auto GCV = model.gcv<StochasticEDF>(MC_run, seed);
+            // if(return_smoothing){
+            //     std::cout << "ATTENTION: YOU WANT S, BUT STOCHASTIC GCV IS ACTIVATED"; 
+            // }
+
+
+            // exact
+            auto GCV = model.gcv<ExactEDF>();
+            
+            // optimize GCV
+            Grid<fdapde::Dynamic> opt;
+            opt.optimize(GCV, lambdas_mat);
+            best_lambda = opt.optimum();
+
+            std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+
+            // Save scores 
+            std::ofstream fileGCV_scores(solutions_path + "/score.csv");
+            std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
+            for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
+                fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
+            fileGCV_scores.close();
+
+
+            std::ofstream fileGCV_edf(solutions_path + "/edf.csv");
+            for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+                fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+            fileGCV_edf.close();
+
+        } else{
+
+
+            std::cout << "initialize KCV_" << std::endl; 
+            
+            KCV KCV_(num_folds, seed_kfold, shuffle_kfold);
+
+            std::cout << "call fit KCV_" << std::endl; 
+            KCV_.fit(model, lambdas_mat, RMSE(model), time_locs, space_locs, y, 
+                    has_fix_cov = has_fix_cov, has_rnd_cov = has_rnd_cov);
+
+            best_lambda = KCV_.optimum(); 
+            
+            // Save scores 
+            std::ofstream fileKCV_scores(solutions_path + "/score.csv");
+            std::cout << "len KCV_.avg_scores() = " << KCV_.avg_scores().size() << std::endl;
+            for(std::size_t i = 0; i < KCV_.avg_scores().size(); ++i) 
+                fileKCV_scores << std::setprecision(16) << KCV_.avg_scores()[i] << "\n"; 
+            fileKCV_scores.close();
+
+
+        }
+
+
 
         // Save lambda sequence 
         std::ofstream fileLambdaS(solutions_path + "/lambdas_S_seq.csv");
@@ -369,18 +442,6 @@ TEST(case_study_mstrpde_gcv, NO2) {
           fileLambdaoptT.close();
         }
 
-        // Save GCV 
-        std::ofstream fileGCV_scores(solutions_path + "/score.csv");
-        std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
-        for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
-            fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
-        fileGCV_scores.close();
-
-
-        std::ofstream fileGCV_edf(solutions_path + "/edf.csv");
-        for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-            fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-        fileGCV_edf.close();
 
     }
 
@@ -399,15 +460,51 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
         model.init();
 
-        // define GCV function and grid of \lambda_D values
-        auto GCV = model.gcv<ExactEDF>();
-        // optimize GCV
-        Grid<fdapde::Dynamic> opt;
-        opt.optimize(GCV, lambdas_mat);
-        
-        best_lambda = opt.optimum();
 
-        std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+        if(CV_type == "GCV"){
+
+            // define GCV function and grid of \lambda_D values
+            auto GCV = model.gcv<ExactEDF>();
+            // optimize GCV
+            Grid<fdapde::Dynamic> opt;
+            opt.optimize(GCV, lambdas_mat);
+            
+            best_lambda = opt.optimum();
+
+            std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+
+            // Save GCV 
+            std::ofstream fileGCV_scores(solutions_path + "/score.csv");
+            std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
+            for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
+                fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
+            fileGCV_scores.close();
+
+
+            std::ofstream fileGCV_edf(solutions_path + "/edf.csv");
+            for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+                fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+            fileGCV_edf.close();
+
+
+        } else{
+
+            KCV KCV_(num_folds, seed_kfold, shuffle_kfold);
+            KCV_.fit(model, lambdas_mat, RMSE(model), time_locs, space_locs, y,
+                    has_fix_cov = has_fix_cov, has_rnd_cov = has_rnd_cov);
+
+            best_lambda = KCV_.optimum(); 
+            
+            // Save scores 
+            std::ofstream fileKCV_scores(solutions_path + "/score.csv");
+            std::cout << "len KCV_.avg_scores() = " << KCV_.avg_scores().size() << std::endl;
+            for(std::size_t i = 0; i < KCV_.avg_scores().size(); ++i) 
+                fileKCV_scores << std::setprecision(16) << KCV_.avg_scores()[i] << "\n"; 
+            fileKCV_scores.close();
+
+
+        }
+
 
         // Save lambda sequence 
         std::ofstream fileLambdaS(solutions_path + "/lambdas_S_seq.csv");
@@ -421,7 +518,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
         fileLambda_T_Seq.close();
 
 
-        // Save lambda GCVopt for all alphas
+        // Save lambda GCVopt 
         std::ofstream fileLambdaoptS(solutions_path + "/lambda_s_opt.csv");
         if(fileLambdaoptS.is_open()){
           fileLambdaoptS << std::setprecision(16) << best_lambda[0];
@@ -432,20 +529,6 @@ TEST(case_study_mstrpde_gcv, NO2) {
           fileLambdaoptT << std::setprecision(16) << best_lambda[1];
           fileLambdaoptT.close();
         }
-
-        // Save GCV 
-        std::ofstream fileGCV_scores(solutions_path + "/score.csv");
-        std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
-        for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
-            fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
-        fileGCV_scores.close();
-
-
-        std::ofstream fileGCV_edf(solutions_path + "/edf.csv");
-        for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-            fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-        fileGCV_edf.close();
-
 
 
     }
@@ -463,10 +546,16 @@ TEST(case_study_mstrpde_run, NO2) {
     std::string day_chosen; 
     if(infraday_analysis){
         month = "gennaio"; 
-        day_chosen = "11"; 
+        day_chosen = "15"; 
         results_str = "results_infraday";
     } else{
         results_str = "results"; 
+    }
+
+    unsigned int num_folds;
+    const std::string CV_type = "5-folds";     // "GCV"  "5-folds"
+    if(CV_type != "GCV"){
+        num_folds = 5; 
     }
 
 
@@ -478,16 +567,32 @@ TEST(case_study_mstrpde_run, NO2) {
 
     const unsigned int num_fpirls_iter = 15;  
 
+    // define time domain 
+    double t0;
+    double tf;
+    if(!infraday_analysis){
+        t0 = 0.0;
+        tf = 22.0;
+    } else{
+        t0 = 0.0;
+        tf = 23.0;
+    }
+
+    const unsigned int M = 6;  // number of time mesh nodes 
+    const std::string M_string = "_M" + std::to_string(M);
+    Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
+
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
-    const std::string model_type = "nonparam";  // "nonparam" "param"
+    const std::string model_type_root = "param";  // "nonparam" "param"
+    const std::string model_type = model_type_root + M_string; 
     const std::string  cascading_model_type = "nonparametric";  // "parametric" "nonparametric" 
     if(cascading_model_type == "parametric"){
         pde_type = pde_type + "_par"; 
     }
 
     std::string cov_strategy;
-    if(model_type == "param"){
+    if(model_type_root == "param"){
         cov_strategy = "7"; 
     } 
     const std::string covariate_type = "cov_" + cov_strategy; 
@@ -515,9 +620,9 @@ TEST(case_study_mstrpde_run, NO2) {
     }
 
     const std::string mesh_type = "canotto_fine";  // la run sulla mesh fine!
-    const std::string mesh_gcv_type = "canotto_coarse";    
+    const std::string mesh_gcv_type = "canotto_fine";  // fine come la run !! 
 
-    std::string est_type = "mean";    // mean mixed
+    std::string est_type = "mixed";    // mean mixed
 
     // Marco 
     std::string path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/case_studies/mixed_NO2"; 
@@ -541,12 +646,12 @@ TEST(case_study_mstrpde_run, NO2) {
     }
 
     if(!infraday_analysis){
-        if(model_type == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_gcv_type;
+        if(model_type_root == "nonparam"){
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + mesh_gcv_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
         }
         if(pde_type != ""){
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
@@ -554,12 +659,12 @@ TEST(case_study_mstrpde_run, NO2) {
         }
             
     } else{
-        if(model_type == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_gcv_type;
+        if(model_type_root == "nonparam"){
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_type + "/" + covariate_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + mesh_gcv_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
         }
         if(pde_type != ""){
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;
@@ -572,19 +677,6 @@ TEST(case_study_mstrpde_run, NO2) {
 
     // define spatial domain
     MeshLoader<Triangulation<2, 2>> domain("mesh_lombardia_" + mesh_type);
-
-    // define time domain 
-    double t0;
-    double tf;
-    if(!infraday_analysis){
-        t0 = 0.0;
-        tf = 22.0;
-    } else{
-        t0 = 0.0;
-        tf = 23.0;
-    }
-    const unsigned int M = 11;  // number of time mesh nodes 
-    Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
     // import data and locs from files
     DMatrix<double> y; DMatrix<double> space_locs; DMatrix<double> time_locs; 
@@ -601,7 +693,7 @@ TEST(case_study_mstrpde_run, NO2) {
     std::cout << "dim space_locs locs = " << space_locs.rows() << ";" << space_locs.cols() << std::endl;
     std::cout << "max(space_locs) = " << space_locs.maxCoeff() << std::endl;
 
-    if(model_type == "param"){
+    if(model_type_root == "param"){
         X = read_csv<double>(path_data + "/X" + covariate_type_for_data + ".csv");
         std::cout << "dim X " << X.rows() << " " << X.cols() << std::endl;
     }
@@ -618,7 +710,7 @@ TEST(case_study_mstrpde_run, NO2) {
 
     BlockFrame<double, int> df;
     df.stack(OBSERVATIONS_BLK, y);
-    if(model_type == "param")
+    if(model_type_root == "param")
         df.insert(DESIGN_MATRIX_BLK, X);
     if(est_type == "mixed")
         df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);
@@ -637,12 +729,9 @@ TEST(case_study_mstrpde_run, NO2) {
     auto Ld = -laplacian<FEM>() + advection<FEM>(b); 
     PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
+
     // // Only Laplacian
-
-    // // rhs 
-    // DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
-
-    // // define regularizing PDE  in space
+    // DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1); // rhs 
     // auto Ld = -laplacian<FEM>();   
     // PDE<Triangulation<2, 2>, decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
@@ -713,7 +802,7 @@ TEST(case_study_mstrpde_run, NO2) {
             fileg.close();
         }
 
-        DMatrix<double> computedFn = model.Psi()*model.f();
+        DMatrix<double> computedFn = model.Psi()*model.f(); // ATTENZIONE: la soluzione avrà zeri nelle righe missing ! 
         const static Eigen::IOFormat CSVFormatfn(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
         std::ofstream filefn(solutions_path + "/fn.csv");
         if(filefn.is_open()){
@@ -721,7 +810,7 @@ TEST(case_study_mstrpde_run, NO2) {
             filefn.close();
         }     
 
-        if(model_type == "param"){
+        if(model_type_root == "param"){
             DMatrix<double> computedBeta = model.beta(); 
             const static Eigen::IOFormat CSVFormatBeta(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
             std::ofstream filebeta(solutions_path + "/beta.csv");
@@ -782,7 +871,7 @@ TEST(case_study_mstrpde_run, NO2) {
             filef.close();
         }
 
-        DMatrix<double> computedFn = model.Psi()*model.f();
+        DMatrix<double> computedFn = model.Psi()*model.f();   // ATTENZIONE: la soluzione avrà zeri nelle righe missing ! 
         const static Eigen::IOFormat CSVFormatfn(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
         std::ofstream filefn(solutions_path + "/fn.csv");
         if(filefn.is_open()){
@@ -790,7 +879,7 @@ TEST(case_study_mstrpde_run, NO2) {
             filefn.close();
         }
 
-        if(model_type == "param"){
+        if(model_type_root == "param"){
             DMatrix<double> computedBeta = model.beta(); 
             const static Eigen::IOFormat CSVFormatBeta(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
             std::ofstream filebeta(solutions_path + "/beta.csv");

@@ -71,13 +71,119 @@ class KCV : public CalibratorBase<KCV> {
 
     // selects best smoothing parameter of model according to a K-fold cross validation strategy
     template <typename ModelType, typename ScoreType>
-    DVector<double> fit(ModelType& model, const DMatrix<double>& lambdas, ScoreType cv_score) {
+    DVector<double> fit(ModelType& model, const DMatrix<double>& lambdas, ScoreType cv_score, 
+                        DMatrix<double> time_locs, DMatrix<double> space_locs, DMatrix<double> y, 
+                        bool has_fix_cov = false, bool has_rnd_cov = false) {  // ATT M aggiunti time_locs, space_locs, y
+        
+        std::cout << "dim y = " << y.rows() << ";" << y.cols() << std::endl;
+
         fdapde_assert(lambdas.cols() == 1 || lambdas.cols() == 2);
         // reserve space for CV scores
         scores_.resize(K_, lambdas.rows());
+
         if (shuffle_) {   // perform a first shuffling of the data if required
-            model.set_data(model.data().shuffle(seed_));
-	}
+
+            // model.set_data(model.data().shuffle(seed_));   // prima 
+
+
+            // M ATT aggiunto shuffle anche per le locs
+            // NOTA: in space-time non posso fare 
+            // model.set_spatial_locations(model.locs().shuffle(seed_));
+            // model.set_temporal_locations(time_locs.shuffle(seed_));
+            // perchè anche se stesso seed, le lunghezze dei vettori sono diverse quindi farebbe un diverso shuffle.
+            // Quindi faccio prima shuffle su space_locs, poi su time_locs, e poi per y l'ordinamento sarà il prodotto cartesiano dei due
+            
+
+            // store room 
+            DMatrix<double> space_locs_shuffle;
+            DMatrix<double> time_locs_shuffle;
+            DMatrix<double> y_shuffle;
+            space_locs_shuffle.resize(model.n_spatial_locs(), 2);
+            time_locs_shuffle.resize(model.n_temporal_locs(), 1);
+            y_shuffle.resize(model.n_spatial_locs(), model.n_temporal_locs());
+
+            std::cout << "model.n_spatial_locs() = " << model.n_spatial_locs() << std::endl;
+            std::cout << "model.n_temporal_locs() = " << model.n_temporal_locs() << std::endl;
+            std::cout << "model.n_locs() = " << model.n_locs() << std::endl;
+
+            // generate random permutation for space locs shuffle
+            auto rng_space_locs = std::default_random_engine(seed_);
+            std::vector<int> indexes_space_locs;
+            indexes_space_locs.resize(model.n_spatial_locs());
+            std::iota(indexes_space_locs.begin(), indexes_space_locs.end(), 0);
+            std::shuffle(std::begin(indexes_space_locs), std::end(indexes_space_locs), rng_space_locs);
+
+            for(int i = 0; i < model.n_spatial_locs(); i++) {
+                space_locs_shuffle(i,0) = space_locs(indexes_space_locs[i],0);
+                space_locs_shuffle(i,1) = space_locs(indexes_space_locs[i],1);
+            }
+
+
+            // generate random permutation for time locs shuffle
+            auto rng_time_locs = std::default_random_engine(seed_);
+            std::vector<int> indexes_time_locs;
+            indexes_time_locs.resize(model.n_temporal_locs());
+            std::iota(indexes_time_locs.begin(), indexes_time_locs.end(), 0);
+            std::shuffle(std::begin(indexes_time_locs), std::end(indexes_time_locs), rng_time_locs);
+
+            for(int i = 0; i < model.n_temporal_locs(); i++) {
+                time_locs_shuffle(i,0) = time_locs(indexes_time_locs[i],0);
+            }
+
+
+            // generate random permutation for y shuffle accordingly
+            for(int j=0; j<model.n_temporal_locs(); ++j){
+                for(int i=0; i<model.n_spatial_locs(); ++i){                    
+                    y_shuffle(i, j) = y(indexes_space_locs[i], indexes_time_locs[j]);
+                }    
+            }
+
+            std::cout << "dim y_shuffle = " << y_shuffle.rows() << ";" << y_shuffle.cols() << std::endl;
+            std::cout << "dim space_locs_shuffle = " << space_locs_shuffle.rows() << " , " << space_locs_shuffle.cols() << std::endl;
+
+            // set the shuffled data
+            BlockFrame<double, int> df_shuffle;
+            df_shuffle.stack(OBSERVATIONS_BLK, y_shuffle);  // ATT stack for space-time models
+
+            DMatrix<double> X_shuffle; 
+            if(has_fix_cov){
+                X_shuffle.resize(model.n_locs(), model.X().cols());
+                for(int k=0; k<model.X().cols();++k){
+                    for(int j=0; j<model.n_temporal_locs(); ++j){
+                        for(int i=0; i<model.n_spatial_locs(); ++i){                    
+                            X_shuffle(j*model.n_temporal_locs()+i, k) = model.X()(indexes_time_locs[j]*model.n_temporal_locs()+indexes_space_locs[i], k);
+                        }    
+                    }
+                }
+
+                df_shuffle.insert(DESIGN_MATRIX_BLK, X_shuffle);
+            }
+
+
+            DMatrix<double> Z_shuffle; 
+            if(has_rnd_cov){
+                Z_shuffle.resize(model.n_locs(), model.Z().cols());
+                for(int k=0; k<model.Z().cols();++k){
+                    for(int j=0; j<model.n_temporal_locs(); ++j){
+                        for(int i=0; i<model.n_spatial_locs(); ++i){                    
+                            Z_shuffle(j*model.n_temporal_locs()+i, k) = model.Z()(indexes_time_locs[j]*model.n_temporal_locs()+indexes_space_locs[i], k);
+                        }    
+                    }
+                }
+
+                df_shuffle.insert(DESIGN_MATRIX_RANDOM_BLK, Z_shuffle);
+
+            }
+
+            // set shuffle data 
+            model.set_data(df_shuffle);
+            model.set_temporal_locations(time_locs_shuffle); 
+            model.set_spatial_locations(space_locs_shuffle); 
+
+            std::cout << "end shuffle" << std::endl;
+
+
+    }
         // cycle over all tuning parameters
         for (int j = 0; j < lambdas.rows(); ++j) {
             for (int fold = 0; fold < K_; ++fold) {   // fixed a tuning parameter, cycle over all data splits

@@ -126,7 +126,7 @@ class RegressionBase :
     const DVector<double>& f() const { return f_; };         // estimate of spatial field
     const DVector<double>& g() const { return g_; };         // PDE misfit
     const DVector<double>& beta() const { return beta_; };   // estimate of regression coefficients
-    const DVector<double>& random_part() const { return random_part_; };  // estimate of the random part of the fitted vector )
+    const DVector<double>& random_part() const { return random_part_; };  // estimate of the random part of the fitted vector
 
     const BinaryVector<fdapde::Dynamic>& nan_mask() const { return nan_mask_; }
     BinaryVector<fdapde::Dynamic> masked_obs() const { return y_mask_ | nan_mask_; }
@@ -263,19 +263,16 @@ class RegressionBase :
             std::cout << "in analyze_data, has_weights=FALSE..." << std::endl;
             std::cout << "n_obs()=" << n_obs() << std::endl;   
             std::cout << "n_locs()=" << Base::n_locs() << std::endl; 
-            if(has_nan()){
-                std::cout << "has_nan()=TRUE" << std::endl; 
-            } else{
-                std::cout << "has_nan()=FALSE" << std::endl;
-            }  
 
             W_.resize(Base::n_locs(), Base::n_locs());  // ATT: la dimensione è Base::n_locs(), la costante per eventuale normalizzazione sarà con n_obs() perchè (1): deve essere coerente con norm(); (2) è giusto dividere per i soli dati osservati, dato che sommo solo su quelli   
             W_.setIdentity(); 
-            // std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl; 
+            std::cout << "range W_ in analyze data:" << W_.coeffs().minCoeff() << ";" << W_.coeffs().maxCoeff() << std::endl;
+            std::cout << "sum elements W_ in analyze data:" << W_.coeffs().sum() << std::endl; 
 
             if(normalize_loss_){
                 std::cout << "loss normalized in regression base" << std::endl;
                 W_ *= (1.0 / n_obs());  // ATT: costante per rinormalizzazione 
+                std::cout << "sum elements W_ post normalization:" << W_.coeffs().sum() << std::endl;
             }
             
         }

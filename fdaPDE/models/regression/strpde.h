@@ -70,11 +70,14 @@ class STRPDE<SpaceTimeSeparable, monolithic> :
     void init_model() {
         std::cout << "start init strpde" << std::endl;
         if (runtime().query(runtime_status::is_lambda_changed)) {
+
             // assemble system matrix for the nonparameteric part
             if (is_empty(K_)) K_ = Kronecker(P1(), pde().mass());
+
             A_ = SparseBlockMatrix<double, 2, 2>(
               -PsiTD() * W() * Psi() - lambda_T() * K_, lambda_D() * R1().transpose(),
 	      lambda_D() * R1(),                        lambda_D() * R0()            );
+
             invA_.compute(A_);
             // prepare rhs of linear system
             b_.resize(A_.rows());
