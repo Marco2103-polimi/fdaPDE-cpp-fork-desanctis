@@ -1453,9 +1453,10 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
     // rhs 
     DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
 
-    // define regularizing PDE in space
-    
-    // TODO: leggere anisotropia !! 
+    // define regularizing PDE  in space
+    // TODO leggere anisotropia 
+    // ...................................
+
 
 
     // define regularizing PDE in time

@@ -886,6 +886,7 @@ TEST(gcv_msrpde_test6, laplacian_semiparametric_samplingatnodes_gridexact) {
 
     // define regularizing PDE  in space
     // TODO leggere anisotropia 
+    // ...................................
 
     // define regularizing PDE in time
     auto Lt = -bilaplacian<SPLINE>();

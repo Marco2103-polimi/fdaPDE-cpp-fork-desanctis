@@ -87,8 +87,7 @@ class KCV : public CalibratorBase<KCV> {
 
 
             // M ATT aggiunto shuffle anche per le locs
-            // NOTA: in space-time non posso fare 
-            // model.set_spatial_locations(model.locs().shuffle(seed_));
+            // NOTA: in space-time non posso fare model.set_spatial_locations(model.locs().shuffle(seed_)); e 
             // model.set_temporal_locations(time_locs.shuffle(seed_));
             // perchè anche se stesso seed, le lunghezze dei vettori sono diverse quindi farebbe un diverso shuffle.
             // Quindi faccio prima shuffle su space_locs, poi su time_locs, e poi per y l'ordinamento sarà il prodotto cartesiano dei due
