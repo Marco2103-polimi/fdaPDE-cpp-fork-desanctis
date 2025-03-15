@@ -68,7 +68,7 @@ class STRPDE<SpaceTimeSeparable, monolithic> :
         Base(space_penalty, time_penalty, s) {};
 
     void init_model() {
-        std::cout << "start init strpde" << std::endl;
+
         if (runtime().query(runtime_status::is_lambda_changed)) {
 
             // assemble system matrix for the nonparameteric part
@@ -87,9 +87,9 @@ class STRPDE<SpaceTimeSeparable, monolithic> :
         if (runtime().query(runtime_status::require_W_update)) {
             // adjust north-west block of matrix A_ and factorize
             A_.block(0, 0) = -PsiTD() * W() * Psi() - lambda_T() * K_;
-            std::cout << "in init strpde: inversion A" << std::endl;
+
             invA_.compute(A_);
-            std::cout << "end inversion A" << std::endl;
+
             return;
         }
     }
@@ -100,9 +100,7 @@ class STRPDE<SpaceTimeSeparable, monolithic> :
             // update rhs of STR-PDE linear system
             b_.block(0, 0, A_.rows() / 2, 1) = -PsiTD() * W() * y();
             // solve linear system A_*x = b_
-            std::cout << "start system resolution strpde" << std::endl;
             sol = invA_.solve(b_);
-            std::cout << "end system resolution strpde" << std::endl;
             f_ = sol.head(A_.rows() / 2);
         } else {   // parametric case
             // update rhs of STR-PDE linear system
@@ -113,9 +111,7 @@ class STRPDE<SpaceTimeSeparable, monolithic> :
             V_ = DMatrix<double>::Zero(q(), A_.rows());
             V_.block(0, 0, q(), A_.rows() / 2) = X().transpose() * W() * Psi();
             // solve system (A_ + U_*(X^T*W_*X)*V_)x = b using woodbury formula from NLA module
-            std::cout << "start system resolution strpde" << std::endl;
             sol = SMW<>().solve(invA_, U_, XtWX(), V_, b_);
-            std::cout << "end system resolution strpde" << std::endl;
             // store result of smoothing
             f_ = sol.head(A_.rows() / 2);
             beta_ = invXtWX().solve(X().transpose() * W()) * (y() - Psi() * f_);

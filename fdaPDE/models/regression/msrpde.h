@@ -347,7 +347,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         // M: compute the number of groups as the number of unique values in Rgroup_ids
         std::unordered_set<unsigned int> unique_ids(Rgroup_ids.begin(), Rgroup_ids.end()); 
         n_groups_ = unique_ids.size();
-        std::cout << "Number of groups = " << n_groups_ << std::endl; 
+        //std::cout << "Number of groups = " << n_groups_ << std::endl; 
 
         group_ids_ = Rgroup_ids - DVector<unsigned int>::Ones(Rgroup_ids.size()); // ATT: aggiunto -1 perchè come input dò Rgroup_ids che parte a contare da 1 (anche Melchionda lo fa, ma nel wrapper)
 
@@ -380,7 +380,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     }
 
     void set_fpirls_max_iter(int max_iter) { 
-        std::cout << "setting max_iter fpirls to " << max_iter << std::endl; 
+        //std::cout << "setting max_iter fpirls to " << max_iter << std::endl; 
         max_iter_ = max_iter; 
         fpirls_.set_max_iter(max_iter);   // M: update variable in fpirls object
     }
@@ -564,7 +564,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             }
             sigma_sq_hat_ /= (n_obs()-edf); 
 
-            std::cout << "edf = " << std::setprecision(16) << edf << std::endl;
+            // std::cout << "edf = " << std::setprecision(16) << edf << std::endl;
 
         } else{
             sigma_sq_hat_ /= n_obs();  
