@@ -82,6 +82,7 @@ template <typename Model_> class FPIRLS {
         // objective functional value at consecutive iterations
         double J_old = tolerance_ + 1, J_new = 0;
 	k_ = 0;
+    std::cout << "start fpirls with max_iter=" << max_iter_ << " and tolerance=" << tolerance_ << std::endl;
         while (k_ < max_iter_ && std::abs(J_new - J_old) > tolerance_) {
  
 
@@ -137,7 +138,7 @@ template <typename Model_> class FPIRLS {
 
 
         }
-        std::cout << "end fpirls" << std::endl;
+        std::cout << "end fpirls with " << k_ << " iterations and with |DJ|=" << std::abs(J_new - J_old) << std::endl;
         // debug 
         functional_value_ = J_new; 
         return;

@@ -785,7 +785,6 @@ template <typename RegularizationType_>
 
     template <typename RegularizationType>
         const DMatrix<double>& MQSRPDE<RegularizationType>::H_multiple() {
-
         
         // compute H = X*(X^T*W*X)^{-1}*X^T*W
         H_multiple_ = X_multiple_*(invXtWX_multiple_.solve(X_multiple_.transpose())*W_multiple_);  

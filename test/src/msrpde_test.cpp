@@ -1453,17 +1453,35 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
     
     // path test  
     std::string test_number = "6";  
-    std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number;
+    const std::string trial_number = "5";  // "1" "2" "3" "4" "5"
+
+    std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number + "/trial_" + trial_number;
+
 
     const unsigned int sim_start = 1; 
-    const unsigned int n_sim = 20; 
+    const unsigned int n_sim = 50; 
     
     // define domain
     const double t0 = 0.0;
     const double tf = 1.0;
-    const unsigned int M = 11;   // number of time mesh nodes    
+    unsigned int M;  // number of time mesh nodes 
+    if(trial_number == "1" || trial_number == "2"){
+        M = 11; 
+    }
+    if(trial_number == "3" || trial_number == "4" || trial_number == "5"){
+        M = 8; 
+    }  
     Triangulation<1, 1> time_mesh(t0, tf, M-1);
-    MeshLoader<Triangulation<2, 2>> domain("unit_square_reduced_censoring_476");    
+
+    std::string N_string; 
+    if(trial_number == "1" || trial_number == "5"){
+        N_string = "476"; 
+    }
+    if(trial_number == "2" || trial_number == "3" || trial_number == "4"){
+        N_string = "617"; 
+    }
+
+    MeshLoader<Triangulation<2, 2>> domain("unit_square_reduced_censoring_" + N_string); 
     // std::cout << "num domain.mesh.n_cells() = " << domain.mesh.n_cells() << std::endl; 
 
     const unsigned int max_fpirls_iter = 15; 
@@ -1556,7 +1574,7 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
 
         // Stop measuring time
         auto stop_time_run = high_resolution_clock::now();
-        auto duration_run = duration_cast<milliseconds>(stop_time_ru - start_time_run).count();
+        auto duration_run = duration_cast<milliseconds>(stop_time_run - start_time_run).count();
         std::cout << "Execution time RUN: " << duration_run << " ms" << std::endl;
 
         // Save solution
