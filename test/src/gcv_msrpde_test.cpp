@@ -867,7 +867,7 @@ TEST(gcv_msrpde_test6, laplacian_semiparametric_samplingatnodes_gridexact) {
 
     // path test  
     std::string test_number = "6";   
-    const std::string trial_number = "5";  // "1" "2" "3" "4" "5"
+    const std::string trial_number = "6";  // "1" "2" "3" "4" "5" "6"
 
     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number + "/trial_" + trial_number;
 
@@ -881,13 +881,13 @@ TEST(gcv_msrpde_test6, laplacian_semiparametric_samplingatnodes_gridexact) {
     if(trial_number == "1" || trial_number == "2"){
         M = 11; 
     }
-    if(trial_number == "3" || trial_number == "4" || trial_number == "5"){
+    if(trial_number == "3" || trial_number == "4" || trial_number == "5" || trial_number == "6"){
         M = 8; 
     }
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
     std::string N_string; 
-    if(trial_number == "1" || trial_number == "5"){
+    if(trial_number == "1" || trial_number == "5" || trial_number == "6"){
         N_string = "476"; 
     }
     if(trial_number == "2" || trial_number == "3" || trial_number == "4"){
@@ -953,6 +953,13 @@ TEST(gcv_msrpde_test6, laplacian_semiparametric_samplingatnodes_gridexact) {
     }
     if(trial_number == "5"){
         for(double xs = -3.5; xs <= -2.74; xs += 0.25)
+        lambdas_d.push_back(std::pow(10,xs));
+
+        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+            lambdas_t.push_back(std::pow(10,xt));
+    }
+    if(trial_number == "6"){
+        for(double xs = -5.5; xs <= -2.0; xs += 0.25)
         lambdas_d.push_back(std::pow(10,xs));
 
         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
