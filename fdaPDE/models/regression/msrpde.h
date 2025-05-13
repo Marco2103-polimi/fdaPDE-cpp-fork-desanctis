@@ -210,6 +210,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         // set weights and pseudo-observations to zero where there are missing values
         for(std::size_t i=0; i<n_locs(); ++i){   // qui voglio loopare su tutto il vettore => n_locs()
         
+            // Set to zeros the weights and pseudo-observations where there are missing values 
             if(Base::nan_mask()[i]){
                 
                 py_(i)=0.; 
