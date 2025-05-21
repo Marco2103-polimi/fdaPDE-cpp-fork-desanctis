@@ -86,8 +86,8 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
 
         // compute sigma_sq_hat_ at fpirls convergence. 
         // Nota: sto seguendo il metodo di Melchionda, ovvero sigma_sq_hat_ non ha gli edf nelle iter di fpirls, ma a convergenza viene restituito calcolandolo con gli edf
-        // Nota2: questo viene fatto DOPO il calcolo di Sigma_b_ che usa quindi il sigma_sq_hat_ SENZA edf.  --> M: update: spostato prima del calcolo di Sigma_b_ in modo 
-        //        tale che Sigma_b_ venga calcolato con il sigma_sq_hat_ "finale". 
+        // Nota2: questo viene fatto DOPO il calcolo di Sigma_b_ che usa quindi il sigma_sq_hat_ SENZA edf.  
+        //        --> M: update: spostato prima del calcolo di Sigma_b_ in modo tale che Sigma_b_ venga calcolato con il sigma_sq_hat_ "finale". 
         compute_sigma_sq_hat(true);
 
         // compute Sigma_b_ matrix at fpirls convergence 
