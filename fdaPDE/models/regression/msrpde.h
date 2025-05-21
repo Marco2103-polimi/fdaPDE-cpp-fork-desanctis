@@ -84,6 +84,12 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         }
         invA_ = fpirls_.solver().invA();
 
+        // compute sigma_sq_hat_ at fpirls convergence. 
+        // Nota: sto seguendo il metodo di Melchionda, ovvero sigma_sq_hat_ non ha gli edf nelle iter di fpirls, ma a convergenza viene restituito calcolandolo con gli edf
+        // Nota2: questo viene fatto DOPO il calcolo di Sigma_b_ che usa quindi il sigma_sq_hat_ SENZA edf.  --> M: update: spostato prima del calcolo di Sigma_b_ in modo 
+        //        tale che Sigma_b_ venga calcolato con il sigma_sq_hat_ "finale". 
+        compute_sigma_sq_hat(true);
+
         // compute Sigma_b_ matrix at fpirls convergence 
         Sigma_b_ = Delta_;
         for(auto k=0; k < p(); ++k){
@@ -97,10 +103,6 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
                 set_random_part(temp(j), loc_to_glob_map_[i][j]); 
             }
         } 
-        // compute sigma_sq_hat_ at fpirls convergence. 
-        // Nota: sto seguendo il metodo di Melchionda, ovvero sigma_sq_hat_ non ha gli edf nelle iter di fpirls, ma a convergenza viene restituito calcolandolo con gli edf
-        // Nota2: questo viene fatto DOPO il calcolo di Sigma_b_ che usa quindi il sigma_sq_hat_ SENZA edf.
-        compute_sigma_sq_hat(true);
 
         // debug 
         n_iter_ = fpirls_.n_iter(); 
