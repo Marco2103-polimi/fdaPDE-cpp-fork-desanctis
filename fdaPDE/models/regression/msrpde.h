@@ -243,7 +243,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         mu_ = hat_f;   // fn + X%*%beta (no random part here!)
 
         compute_bhat();
-	    compute_sigma_sq_hat();
+	    compute_sigma_sq_hat();  // note: default value is false => metodo Melchionda (calcolo senza edf nelle fpirls iterations)
         build_LTL();
         compute_C();
 

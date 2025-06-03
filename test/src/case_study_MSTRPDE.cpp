@@ -69,10 +69,14 @@ TEST(case_study_mstrpde_gcv, NO2) {
     }
 
     unsigned int num_folds;
-    const std::string CV_type = "GCV";     // "GCV"  "5-folds" "10-folds"
+    const std::string CV_type = "5-folds";     // "GCV"  "5-folds" "15-folds"
     unsigned int seed_kfold; 
-    if(CV_type != "GCV"){
+    if(CV_type == "5-folds"){
         num_folds = 5; 
+        seed_kfold = 254; 
+    }
+    if(CV_type == "15-folds"){
+        num_folds = 15; 
         seed_kfold = 254; 
     }
     const bool shuffle_kfold = true; 
@@ -84,6 +88,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
     const std::string u_string = "1e-1"; 
 
     const unsigned int num_fpirls_iter = 15;  
+    std::string num_fpirls_iter_str = std::to_string(num_fpirls_iter); 
 
     // define time domain 
     double t0;
@@ -167,27 +172,30 @@ TEST(case_study_mstrpde_gcv, NO2) {
     std::string solutions_path; 
 
     std::string sigla_model; 
+    std::string fpirls_string; 
     if(est_type == "mean"){
         sigla_model = "STRPDE"; 
+        fpirls_string = "";
     }
     if(est_type == "mixed"){
-        sigla_model = "MSTRPDE"; 
+        sigla_model = "MSTRPDE";
+        fpirls_string = "/fp_" + num_fpirls_iter_str; 
     }
 
 
     if(!infraday_analysis){
         if(model_type_root == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
         }
         if(pde_type != "")
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
     } else{
         if(model_type_root == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
         }
         if(pde_type != "")
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;             
@@ -222,8 +230,8 @@ TEST(case_study_mstrpde_gcv, NO2) {
             seq_end_time = -8.0; 
             seq_by_time = 2.0; 
         } else{
-            seq_start_space = -7.0; 
-            seq_end_space = -2.0; 
+            seq_start_space = -3.25; 
+            seq_end_space = -2.20; 
             seq_by_space = 0.25; 
 
             seq_start_time = -6.0; 
@@ -370,7 +378,8 @@ TEST(case_study_mstrpde_gcv, NO2) {
     } else{
         std::cout << "-----------------------------" + CV_type + " STARTS------------------------" << std::endl; 
     }
-       
+     
+    std::cout << "solutions_path=" << solutions_path << std::endl;
 
     if(est_type == "mean"){
 
@@ -584,9 +593,12 @@ TEST(case_study_mstrpde_run, NO2) {
     }
 
     unsigned int num_folds;
-    const std::string CV_type = "GCV";     // "GCV"  "5-folds"
-    if(CV_type != "GCV"){
+    const std::string CV_type = "5-folds";     // "GCV"  "5-folds" "15-folds"
+    if(CV_type == "5-folds"){
         num_folds = 5; 
+    }
+    if(CV_type == "15-folds"){
+        num_folds = 15; 
     }
 
     const bool return_smoothing = true; 
@@ -598,6 +610,7 @@ TEST(case_study_mstrpde_run, NO2) {
     const std::string u_string = "1e-1"; 
 
     const unsigned int num_fpirls_iter = 15;  
+    std::string num_fpirls_iter_str = std::to_string(num_fpirls_iter); 
 
     // define time domain 
     double t0;
@@ -676,20 +689,23 @@ TEST(case_study_mstrpde_run, NO2) {
     std::string solutions_path; std::string solutions_path_gcv; 
 
     std::string sigla_model; 
+    std::string fpirls_string; 
     if(est_type == "mean"){
         sigla_model = "STRPDE"; 
+        fpirls_string = "";
     }
     if(est_type == "mixed"){
-        sigla_model = "MSTRPDE"; 
+        sigla_model = "MSTRPDE";
+        fpirls_string = "/fp_" + num_fpirls_iter_str; 
     }
 
     if(!infraday_analysis){
         if(model_type_root == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_gcv_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
         }
         if(pde_type != ""){
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
@@ -698,11 +714,11 @@ TEST(case_study_mstrpde_run, NO2) {
             
     } else{
         if(model_type_root == "nonparam"){
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_gcv_type;
         } else{
-            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
-            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
+            solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
+            solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
         }
         if(pde_type != ""){
             solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;
