@@ -52,7 +52,7 @@ using fdapde::calibration::RMSE;
 TEST(case_study_mstrpde_gcv, NO2) {
 
     const bool infraday_analysis = true;
-    const bool ME_stations = true;   // random effet on the monitoring stations
+    const bool ME_stations = false;   // caso n_g = n 
 
     std::string results_str; 
     std::string month; 
@@ -105,6 +105,9 @@ TEST(case_study_mstrpde_gcv, NO2) {
     const std::string M_string = "_M" + std::to_string(M);
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
+    // choose the type of model
+    std::string est_type = "mixed";    // mean mixed mean_dummies 
+
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
     const std::string model_type_root = "param";  // "nonparam" "param"
@@ -145,11 +148,14 @@ TEST(case_study_mstrpde_gcv, NO2) {
         covariate_type_for_data = "_sqrt.dens"; 
     }
 
+    if(est_type == "mean_dummies"){
+        covariate_type_for_data = covariate_type_for_data + "_dummies";
+    }
+
+
     const std::string mesh_type = "canotto_inla";    // fine come la run !! 
 
-    std::string est_type = "mixed";    // mean mixed
-
-
+    
     bool has_fix_cov = (model_type == "param"); 
     bool has_rnd_cov = (est_type == "mixed"); 
 
@@ -180,6 +186,10 @@ TEST(case_study_mstrpde_gcv, NO2) {
     if(est_type == "mixed"){
         sigla_model = "MSTRPDE";
         fpirls_string = "/fp_" + num_fpirls_iter_str; 
+    }
+    if(est_type == "mean_dummies"){
+        sigla_model = "STRPDE_dummies"; 
+        fpirls_string = "";
     }
 
 
@@ -240,6 +250,15 @@ TEST(case_study_mstrpde_gcv, NO2) {
         }
 
     }
+    if(est_type == "mean_dummies"){
+        seq_start_space = -6.5; 
+        seq_end_space = -1.0; 
+        seq_by_space = 0.1; 
+
+        seq_start_time = -4.0; 
+        seq_end_time = -4.0; 
+        seq_by_time = 1.0; 
+    }
 
     std::vector<double> lambdas_d; std::vector<double> lambdas_t; std::vector<DVector<double>> lambdas_d_t;
     for(double xs = seq_start_space; xs <= seq_end_space; xs += seq_by_space)    
@@ -285,7 +304,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
     int count_na = 0;
     double max_y = -1000.; // for debug
     double min_y = 1000.; // for debug
-    for (int i = 0; i < y.rows(); ++i) {
+    for(int i = 0; i < y.rows(); ++i) {
         for (int j = 0; j < y.cols(); ++j) {
             if(std::isnan(y(i,j))) {
                 ++count_na;
@@ -381,7 +400,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
      
     std::cout << "solutions_path=" << solutions_path << std::endl;
 
-    if(est_type == "mean"){
+    if(est_type == "mean" || est_type == "mean_dummies"){
 
         STRPDE<SpaceTimeSeparable, fdapde::monolithic> model(space_penalty, time_penalty, Sampling::pointwise);
 
@@ -571,12 +590,11 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
 }
 
-
 // run 
 TEST(case_study_mstrpde_run, NO2) {
 
     const bool infraday_analysis = true; 
-    const bool ME_stations = true;   // random effet on the monitoring stations
+    const bool ME_stations = false;   // random effet on the monitoring stations
 
     std::string results_str; 
     std::string month; 
@@ -627,6 +645,10 @@ TEST(case_study_mstrpde_run, NO2) {
     const std::string M_string = "_M" + std::to_string(M);
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
+
+    // choose the type of model
+    std::string est_type = "mixed";    // mean mixed mean_dummies 
+
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
     const std::string model_type_root = "param";  // "nonparam" "param"
@@ -666,11 +688,13 @@ TEST(case_study_mstrpde_run, NO2) {
     if(cov_strategy == "9"){
         covariate_type_for_data = "_sqrt.dens"; 
     }
+    
+    if(est_type == "mean_dummies"){
+        covariate_type_for_data = covariate_type_for_data + "_dummies";
+    }
 
     const std::string mesh_type = "canotto_inla";  // la run sulla mesh fine!
     const std::string mesh_gcv_type = mesh_type;  // fine come la run !! 
-
-    std::string est_type = "mixed";    // mean mixed
 
     // Marco 
     std::string path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/case_studies/mixed_NO2"; 
@@ -697,6 +721,10 @@ TEST(case_study_mstrpde_run, NO2) {
     if(est_type == "mixed"){
         sigla_model = "MSTRPDE";
         fpirls_string = "/fp_" + num_fpirls_iter_str; 
+    }
+    if(est_type == "mean_dummies"){
+        sigla_model = "STRPDE_dummies"; 
+        fpirls_string = "";
     }
 
     if(!infraday_analysis){
@@ -807,7 +835,7 @@ TEST(case_study_mstrpde_run, NO2) {
 
     std::cout << "-----------------------------RUN STARTS------------------------" << std::endl; 
 
-    if(est_type == "mean"){
+    if(est_type == "mean" || est_type == "mean_dummies"){
 
         STRPDE<SpaceTimeSeparable, fdapde::monolithic> model(space_penalty, time_penalty, Sampling::pointwise);
 
