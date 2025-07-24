@@ -85,7 +85,8 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         invA_ = fpirls_.solver().invA();
 
         // compute sigma_sq_hat_ at fpirls convergence. 
-        // Nota: sto seguendo il metodo di Melchionda, ovvero sigma_sq_hat_ non ha gli edf nelle iter di fpirls, ma a convergenza viene restituito calcolandolo con gli edf
+        // Nota: sto seguendo il metodo di Melchionda, ovvero sigma_sq_hat_ non ha gli edf nelle iter di fpirls (per ragioni di efficienza),
+        //        ma a convergenza viene restituito calcolandolo con gli edf
         // Nota2: questo viene fatto DOPO il calcolo di Sigma_b_ che usa quindi il sigma_sq_hat_ SENZA edf.  
         //        --> M: update: spostato prima del calcolo di Sigma_b_ in modo tale che Sigma_b_ venga calcolato con il sigma_sq_hat_ "finale". 
         compute_sigma_sq_hat(true);
@@ -352,7 +353,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         n_groups_ = unique_ids.size();
         //std::cout << "Number of groups = " << n_groups_ << std::endl; 
 
-        group_ids_ = Rgroup_ids - DVector<unsigned int>::Ones(Rgroup_ids.size()); // ATT: aggiunto -1 perchè come input dò Rgroup_ids che parte a contare da 1 (anche Melchionda lo fa, ma nel wrapper)
+        group_ids_ = Rgroup_ids - DVector<unsigned int>::Ones(Rgroup_ids.size()); // ATT: aggiunto -1 perchè come input do Rgroup_ids che parte a contare da 1 (anche Melchionda lo fa, ma nel wrapper)
 
         // Extract the size of each group
         group_sizes_.resize(n_groups_);
@@ -385,7 +386,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     void set_fpirls_max_iter(int max_iter) { 
         //std::cout << "setting max_iter fpirls to " << max_iter << std::endl; 
         max_iter_ = max_iter; 
-        fpirls_.set_max_iter(max_iter);   // M: update variable in fpirls object
+        fpirls_.set_max_iter(max_iter);   // M: it updates variable in fpirls object
     }
 
     void set_miss_rows_Z_to_zero(bool flag) { set_miss_rows_Z_to_zero_ = flag; } 

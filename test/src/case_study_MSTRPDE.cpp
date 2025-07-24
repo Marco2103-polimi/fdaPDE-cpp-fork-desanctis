@@ -51,8 +51,11 @@ using fdapde::calibration::RMSE;
 // gcv 
 TEST(case_study_mstrpde_gcv, NO2) {
 
-    const bool infraday_analysis = true;
+    const bool infraday_analysis = true;  
+
     const bool ME_stations = false;   // caso n_g = n 
+    const bool ME_sensors = false;   // caso RE su tipologia strumentazione
+    // if both false, then caso R,S,U is run  
 
     std::string results_str; 
     std::string month; 
@@ -63,6 +66,9 @@ TEST(case_study_mstrpde_gcv, NO2) {
         results_str = "results_infraday";
         if(ME_stations){
             results_str += "_MEstations";
+        }
+        if(ME_sensors){
+            results_str += "_MEsensors";
         }
     } else{
         results_str = "results"; 
@@ -75,9 +81,17 @@ TEST(case_study_mstrpde_gcv, NO2) {
         num_folds = 5; 
         seed_kfold = 254; 
     }
+    if(CV_type == "10-folds"){
+        num_folds = 10; 
+        seed_kfold = 684202; 
+    }
     if(CV_type == "15-folds"){
         num_folds = 15; 
         seed_kfold = 254; 
+    }
+    if(CV_type == "50-folds"){
+        num_folds = 50; 
+        seed_kfold = 2093953; 
     }
     const bool shuffle_kfold = true; 
     
@@ -106,7 +120,11 @@ TEST(case_study_mstrpde_gcv, NO2) {
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
     // choose the type of model
-    std::string est_type = "mixed";    // mean mixed mean_dummies 
+    std::string est_type = "mean";    // mean mixed mean_dummies 
+    std::string lambdaT_string; 
+    if(est_type == "mean"){
+        lambdaT_string = "/lambdaT-2";
+    }
 
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
@@ -153,7 +171,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
     }
 
 
-    const std::string mesh_type = "canotto_inla";    // fine come la run !! 
+    const std::string mesh_type = "canotto_fine";    // fine come la run !! 
 
     
     bool has_fix_cov = (model_type == "param"); 
@@ -167,10 +185,14 @@ TEST(case_study_mstrpde_gcv, NO2) {
     if(!infraday_analysis){
         path_data = path + "/data/space-time";  
     } else{
-        if(!ME_stations){
+        if(!ME_stations & !ME_sensors){
             path_data = path + "/data_infraday/" + month + "/day_" + day_chosen; 
-        } else{
+        } 
+        if(ME_stations){
             path_data = path + "/data_infraday_MEstations/" + month + "/day_" + day_chosen; 
+        }
+        if(ME_sensors){
+            path_data = path + "/data_infraday_MEsensors/" + month + "/day_" + day_chosen; 
         }
          
     }
@@ -200,7 +222,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
             solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
         }
         if(pde_type != "")
-            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
+            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string + lambdaT_string; 
     } else{
         if(model_type_root == "nonparam"){
             solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type;
@@ -208,7 +230,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
             solutions_path = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_type + "/" + covariate_type;
         }
         if(pde_type != "")
-            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;             
+            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string + lambdaT_string;             
     }
 
 
@@ -221,25 +243,26 @@ TEST(case_study_mstrpde_gcv, NO2) {
     double seq_start_time; double seq_end_time; double seq_by_time; 
 
     if(est_type == "mean"){
-        seq_start_space = -6.5; 
-        seq_end_space = -1.0; 
-        seq_by_space = 0.1; 
+        seq_start_space = -9.0; 
+        seq_end_space = -2.0; 
+        seq_by_space = 0.25; 
 
-        seq_start_time = -4.0; 
-        seq_end_time = -4.0; 
+        seq_start_time = -2.0; 
+        seq_end_time = -2.0; 
         seq_by_time = 1.0; 
     }
     if(est_type == "mixed"){
 
-        if(!ME_stations){
-            seq_start_space = -6.0; 
-            seq_end_space = -4.0; 
-            seq_by_space = 0.1; 
+        if(!ME_stations & !ME_sensors){
+            seq_start_space = -4.0; 
+            seq_end_space = -3.0; 
+            seq_by_space = 0.25; 
 
             seq_start_time = -8.0; 
             seq_end_time = -8.0; 
-            seq_by_time = 2.0; 
-        } else{
+            seq_by_time = 3.0; 
+        } 
+        if(ME_stations){
             seq_start_space = -3.25; 
             seq_end_space = -2.20; 
             seq_by_space = 0.25; 
@@ -248,16 +271,25 @@ TEST(case_study_mstrpde_gcv, NO2) {
             seq_end_time = -6.0; 
             seq_by_time = 2.0; 
         }
+        if(ME_sensors){
+            seq_start_space = -4.5; 
+            seq_end_space = -2.0; 
+            seq_by_space = 0.5; 
+
+            seq_start_time = -8.0; 
+            seq_end_time = -8.0; 
+            seq_by_time = 3.0; 
+        }
 
     }
     if(est_type == "mean_dummies"){
-        seq_start_space = -6.5; 
-        seq_end_space = -1.0; 
-        seq_by_space = 0.1; 
+        seq_start_space = -9.0; 
+        seq_end_space = -5.9; 
+        seq_by_space = 0.25; 
 
         seq_start_time = -4.0; 
         seq_end_time = -4.0; 
-        seq_by_time = 1.0; 
+        seq_by_time = 2.0; 
     }
 
     std::vector<double> lambdas_d; std::vector<double> lambdas_t; std::vector<DVector<double>> lambdas_d_t;
@@ -593,8 +625,11 @@ TEST(case_study_mstrpde_gcv, NO2) {
 // run 
 TEST(case_study_mstrpde_run, NO2) {
 
-    const bool infraday_analysis = true; 
-    const bool ME_stations = false;   // random effet on the monitoring stations
+    const bool infraday_analysis = true;  
+
+    const bool ME_stations = false;   // caso n_g = n 
+    const bool ME_sensors = false;   // caso RE su tipologia strumentazione
+    // if both false, then caso R,S,U is run  
 
     std::string results_str; 
     std::string month; 
@@ -606,6 +641,9 @@ TEST(case_study_mstrpde_run, NO2) {
         if(ME_stations){
             results_str += "_MEstations";
         }
+        if(ME_sensors){
+            results_str += "_MEsensors";
+        }
     } else{
         results_str = "results"; 
     }
@@ -615,8 +653,14 @@ TEST(case_study_mstrpde_run, NO2) {
     if(CV_type == "5-folds"){
         num_folds = 5; 
     }
+    if(CV_type == "10-folds"){
+        num_folds = 10; 
+    }
     if(CV_type == "15-folds"){
         num_folds = 15; 
+    }
+    if(CV_type == "50-folds"){
+        num_folds = 50; 
     }
 
     const bool return_smoothing = true; 
@@ -647,7 +691,11 @@ TEST(case_study_mstrpde_run, NO2) {
 
 
     // choose the type of model
-    std::string est_type = "mixed";    // mean mixed mean_dummies 
+    std::string est_type = "mean";    // mean mixed mean_dummies 
+    std::string lambdaT_string; 
+    if(est_type == "mean"){
+        lambdaT_string = "/lambdaT-2";
+    }
 
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
@@ -693,7 +741,7 @@ TEST(case_study_mstrpde_run, NO2) {
         covariate_type_for_data = covariate_type_for_data + "_dummies";
     }
 
-    const std::string mesh_type = "canotto_inla";  // la run sulla mesh fine!
+    const std::string mesh_type = "canotto_fine";  // la run sulla mesh fine!
     const std::string mesh_gcv_type = mesh_type;  // fine come la run !! 
 
     // Marco 
@@ -703,11 +751,15 @@ TEST(case_study_mstrpde_run, NO2) {
     if(!infraday_analysis){
         path_data = path + "/data/space-time";  
     } else{
-        if(!ME_stations){
+        if(!ME_stations & !ME_sensors){
             path_data = path + "/data_infraday/" + month + "/day_" + day_chosen; 
-        } else{
-            path_data = path + "/data_infraday_MEstations/" + month + "/day_" + day_chosen; 
         } 
+        if(ME_stations){
+            path_data = path + "/data_infraday_MEstations/" + month + "/day_" + day_chosen; 
+        }
+        if(ME_sensors){
+            path_data = path + "/data_infraday_MEsensors/" + month + "/day_" + day_chosen; 
+        }
     }
 
     std::string solutions_path; std::string solutions_path_gcv; 
@@ -736,8 +788,8 @@ TEST(case_study_mstrpde_run, NO2) {
             solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
         }
         if(pde_type != ""){
-            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string; 
-            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string; 
+            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string + lambdaT_string; 
+            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string + lambdaT_string; 
         }
             
     } else{
@@ -749,8 +801,8 @@ TEST(case_study_mstrpde_run, NO2) {
             solutions_path_gcv = path + "/" + results_str + "/" + sigla_model + "/" + month + "/day_" + day_chosen + "/" + model_type + fpirls_string + "/" + CV_type + "/" + mesh_gcv_type + "/" + covariate_type;
         }
         if(pde_type != ""){
-            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string;
-            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string;
+            solutions_path = solutions_path + "/pde_" + pde_type + "/u_" + u_string + lambdaT_string;
+            solutions_path_gcv = solutions_path_gcv + "/pde_" + pde_type + "/u_" + u_string + lambdaT_string;
         }
             
     }

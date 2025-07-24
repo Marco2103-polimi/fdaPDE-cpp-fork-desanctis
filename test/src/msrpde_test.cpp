@@ -1453,7 +1453,7 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
     
     // path test  
     std::string test_number = "6";  
-    const std::string trial_number = "9";  // "1" "2" "3" "4" "5" "6" "7" "8" "9"
+    const std::string trial_number = "11";  // "1" "2" "3" "4" "5" "6" "7" "8" "9" "10"
 
     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number + "/trial_" + trial_number;
 
@@ -1465,7 +1465,8 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
     const bool run_srpde = true;
     const bool run_msrpde = true;
     const bool run_msr_iso = true;
-    
+    const bool run_srpde_d = true;   // strpde con dummies
+
     // define domain
     const double t0 = 0.0;
     const double tf = 1.0;
@@ -1473,13 +1474,13 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
     if(trial_number == "1" || trial_number == "2"){
         M = 11; 
     }
-    if(trial_number == "3" || trial_number == "4" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9"){
+    if(trial_number == "3" || trial_number == "4" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9" || trial_number == "10" || trial_number == "11"){
         M = 8; 
     }  
     Triangulation<1, 1> time_mesh(t0, tf, M-1);
 
     std::string N_string; 
-    if(trial_number == "1" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9"){
+    if(trial_number == "1" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9" || trial_number == "10" || trial_number == "11"){
         N_string = "476"; 
     }
     if(trial_number == "2" || trial_number == "3" || trial_number == "4"){
@@ -1500,7 +1501,7 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
 
 
     // Read covariates
-    DMatrix<double> X = read_csv<double>(R_path + "/X.csv");
+    DMatrix<double> X;  // read below since depedent on the model (dummy or not dummy)
 
     DMatrix<double> Z = read_csv<double>(R_path + "/Z.csv");  
     std::cout << "dim Z = " << Z.rows() << ";" << Z.cols() << std::endl;
@@ -1524,6 +1525,10 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
 
     // Simulations MSRPDE  
     if(run_msrpde){
+
+        X = read_csv<double>(R_path + "/X.csv"); 
+        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+        std::cout << "max(X) = " << X.maxCoeff() << std::endl;
 
         for(auto sim = sim_start; sim <= n_sim; ++sim){
 
@@ -1654,6 +1659,10 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
     // Simulations SRPDE  
     if(run_srpde){
 
+        X = read_csv<double>(R_path + "/X.csv"); 
+        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+        std::cout << "max(X) = " << X.maxCoeff() << std::endl;
+
         for(auto sim = sim_start; sim <= n_sim; ++sim){
 
             std::cout << "--------------------Simulation run SRPDE #" << std::to_string(sim) << "-------------" << std::endl;
@@ -1747,8 +1756,12 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
 
     }
 
-       // Simulations MSRPDE  
+    // Simulations MSRPDE  
     if(run_msr_iso){
+
+        X = read_csv<double>(R_path + "/X.csv"); 
+        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+        std::cout << "max(X) = " << X.maxCoeff() << std::endl;
 
         for(auto sim = sim_start; sim <= n_sim; ++sim){
 
@@ -1875,6 +1888,107 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
 
     }
  
+    // Simulations SRPDE-D  
+    if(run_srpde_d){
+
+        X = read_csv<double>(R_path + "/X_dummies.csv"); 
+        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+        std::cout << "max(X) = " << X.maxCoeff() << std::endl;        
+
+        for(auto sim = sim_start; sim <= n_sim; ++sim){
+
+            std::cout << "--------------------Simulation run SRPDE-D #" << std::to_string(sim) << "-------------" << std::endl;
+    
+            // load data from .csv files
+            DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
+            std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
+    
+            BlockFrame<double, int> df;
+            df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
+            df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
+                          
+            std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde_d";
+    
+            // define regularizing PDE  in space --> NOTE: parameter cascading is common between the two models, so I read from the same folder!
+            SMatrix<2> K = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/K_dummies.csv"); 
+            auto Ld = -diffusion<FEM>(K);   // anisotropic diffusion  
+            PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
+    
+            // read lambdas
+            double lambda_D;  
+            double lambda_T;  
+    
+            std::ifstream fileLambdaS_gcv(solution_path + "/lambda_s_opt.csv");
+            if(fileLambdaS_gcv.is_open()){
+                fileLambdaS_gcv >> lambda_D; 
+                fileLambdaS_gcv.close();
+            }
+            std::ifstream fileLambdaT(solution_path + "/lambda_t_opt.csv");
+            if(fileLambdaT.is_open()){
+                fileLambdaT >> lambda_T; 
+                fileLambdaT.close();
+            }
+    
+            // Start measuring time
+            auto start_time_run = high_resolution_clock::now();
+    
+            STRPDE<SpaceTimeSeparable, fdapde::monolithic> model(space_penalty, time_penalty, Sampling::pointwise);    
+            model.set_spatial_locations(space_locs);
+            model.set_temporal_locations(time_locs);
+    
+            // set model 
+            model.set_data(df);
+            
+            model.set_lambda_D(lambda_D);
+            model.set_lambda_T(lambda_T);
+               
+            // solve smoothing problem
+            model.init();
+            model.solve();
+    
+            // Stop measuring time
+            auto stop_time_run = high_resolution_clock::now();
+            auto duration_run = duration_cast<milliseconds>(stop_time_run - start_time_run).count();
+            std::cout << "Execution time RUN: " << duration_run << " ms" << std::endl;
+    
+            // Save solution
+            DMatrix<double> computedF = model.f();
+            const static Eigen::IOFormat CSVFormatf(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
+            std::ofstream filef(solution_path + "/f.csv");
+            if(filef.is_open()){
+                filef << computedF.format(CSVFormatf);
+                filef.close();
+            }
+    
+            DMatrix<double> computedFn = model.Psi()*model.f();
+            const static Eigen::IOFormat CSVFormatfn(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
+            std::ofstream filefn(solution_path + "/fn.csv");
+            if(filefn.is_open()){
+                filefn << computedFn.format(CSVFormatfn);
+                filefn.close();
+            }
+    
+            DMatrix<double> computedBeta = model.beta();
+            const static Eigen::IOFormat CSVFormatbeta(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
+            std::ofstream filebeta(solution_path + "/beta.csv");
+            if(filebeta.is_open()){
+                filebeta << computedBeta.format(CSVFormatbeta);
+                filebeta.close();
+            }        
+               
+            std::ofstream file_time_run(solution_path + "/time_run.csv"); 
+            if(file_time_run.is_open()){
+                file_time_run << duration_run << "\n"; // Write execution time
+                file_time_run.close();
+            }
+    
+        }
+    
+    
+
+    }
+
+
 }
 
 
