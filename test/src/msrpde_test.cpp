@@ -1458,13 +1458,13 @@ TEST(msrpde_test6, laplacian_semiparametric_samplingatnodes) {
     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number + "/trial_" + trial_number;
 
 
-    const unsigned int sim_start = 11;  
+    const unsigned int sim_start = 1;  
     const unsigned int n_sim = 30; 
 
     // run SRPDE and/or MSRPDE ? 
-    const bool run_srpde = true;
-    const bool run_msrpde = true;
-    const bool run_msr_iso = true;
+    const bool run_srpde = false;
+    const bool run_msrpde = false;
+    const bool run_msr_iso = false;
     const bool run_srpde_d = true;   // strpde con dummies
 
     // define domain

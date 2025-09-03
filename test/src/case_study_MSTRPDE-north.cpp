@@ -120,7 +120,7 @@ TEST(case_study_mstrpde_gcv_north, NO2) {
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
     // choose the type of model
-    std::string est_type = "mean";    // mean mixed mean_dummies 
+    std::string est_type = "mixed";    // mean mixed mean_dummies 
 
     std::size_t seed = 438172;
     unsigned int MC_run = 100; 
@@ -129,7 +129,7 @@ TEST(case_study_mstrpde_gcv_north, NO2) {
 
     std::string cov_strategy;
     if(model_type_root == "param"){
-        cov_strategy = "7";    // choose the covariate strategy
+        cov_strategy = "11";    // choose the covariate strategy
     } 
     const std::string covariate_type = "cov_" + cov_strategy; 
     std::string covariate_type_for_data = "";   // if model has covariates, it is overwritten below 
@@ -245,12 +245,12 @@ TEST(case_study_mstrpde_gcv_north, NO2) {
             seq_by_time = 2.0; 
         }
         if(ME_sensors){
-            seq_start_space = -8.0; 
-            seq_end_space = -2.0; 
+            seq_start_space = -3.0; 
+            seq_end_space = -3.0; 
             seq_by_space = 1.0; 
 
-            seq_start_time = -6.0; 
-            seq_end_time = -6.0; 
+            seq_start_time = -8.0; 
+            seq_end_time = -8.0; 
             seq_by_time = 3.0; 
         }
 
@@ -532,10 +532,10 @@ TEST(case_study_mstrpde_gcv_north, NO2) {
             fileGCV_scores.close();
 
 
-            std::ofstream fileGCV_edf(solutions_path + "/edf.csv");
-            for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-                fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-            fileGCV_edf.close();
+            // std::ofstream fileGCV_edf(solutions_path + "/edf.csv");
+            // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+            //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+            // fileGCV_edf.close();
 
 
         } else{
@@ -656,7 +656,7 @@ TEST(case_study_mstrpde_run_north, NO2) {
 
 
     // choose the type of model
-    std::string est_type = "mean";    // mean mixed mean_dummies 
+    std::string est_type = "mixed";    // mean mixed mean_dummies 
   
 
     std::size_t seed = 438172;
@@ -666,7 +666,7 @@ TEST(case_study_mstrpde_run_north, NO2) {
 
     std::string cov_strategy;
     if(model_type_root == "param"){
-        cov_strategy = "7";   // choose the covariate strategy 
+        cov_strategy = "11";   // choose the covariate strategy 
     } 
     const std::string covariate_type = "cov_" + cov_strategy; 
     std::string covariate_type_for_data = "";   // if model has covariates, it is overwritten below 

@@ -54,8 +54,18 @@ TEST(case_study_mstrpde_gcv, NO2) {
     const bool infraday_analysis = true;  
 
     const bool ME_stations = false;   // caso n_g = n 
-    const bool ME_sensors = false;   // caso RE su tipologia strumentazione
+    const bool ME_sensors = true;   // caso RE su tipologia strumentazione
     // if both false, then caso R,S,U is run  
+
+    bool fill_missing_type; 
+    std::string aggregate_in_other; 
+    if(ME_sensors){
+        fill_missing_type = true;  // choose if to fill the unknown types
+        aggregate_in_other = "2";   
+        // "" means aggregation in "other" type
+        // "2" means no aggregation in "other" type
+    }
+    
 
     std::string results_str; 
     std::string month; 
@@ -69,13 +79,16 @@ TEST(case_study_mstrpde_gcv, NO2) {
         }
         if(ME_sensors){
             results_str += "_MEsensors";
+            if(fill_missing_type){ 
+                results_str += ("-all" + aggregate_in_other); 
+            }
         }
     } else{
         results_str = "results"; 
     }
 
     unsigned int num_folds;
-    const std::string CV_type = "5-folds";     // "GCV"  "5-folds" "15-folds"
+    const std::string CV_type = "5-folds";     // "lambda_1" "GCV"  "5-folds" "15-folds"
     unsigned int seed_kfold; 
     if(CV_type == "5-folds"){
         num_folds = 5; 
@@ -120,7 +133,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
     // choose the type of model
-    std::string est_type = "mean";    // mean mixed mean_dummies 
+    std::string est_type = "mixed";    // mean mixed mean_dummies 
     std::string lambdaT_string; 
     if(est_type == "mean"){
         lambdaT_string = "/lambdaT-2";
@@ -192,7 +205,12 @@ TEST(case_study_mstrpde_gcv, NO2) {
             path_data = path + "/data_infraday_MEstations/" + month + "/day_" + day_chosen; 
         }
         if(ME_sensors){
-            path_data = path + "/data_infraday_MEsensors/" + month + "/day_" + day_chosen; 
+            if(!fill_missing_type){
+                path_data = path + "/data_infraday_MEsensors/" + month + "/day_" + day_chosen; 
+            } else{
+                path_data = path + "/data_infraday_MEsensors-all" + aggregate_in_other + "/" + month + "/day_" + day_chosen; 
+            }
+            
         }
          
     }
@@ -283,13 +301,59 @@ TEST(case_study_mstrpde_gcv, NO2) {
 
     }
     if(est_type == "mean_dummies"){
-        seq_start_space = -9.0; 
-        seq_end_space = -5.9; 
-        seq_by_space = 0.25; 
 
-        seq_start_time = -4.0; 
-        seq_end_time = -4.0; 
-        seq_by_time = 2.0; 
+        std::cout << "CV_type.substr(0,5)= " << CV_type.substr(0,5) << std::endl;
+        std::cout << "CV_type.substr(7)= " << CV_type.substr(7) << std::endl;
+        if(CV_type.substr(0,5) == "lambda"){
+            // force lambda 
+            if(CV_type.substr(7) == "1"){
+                seq_start_space = -4.0; 
+                seq_end_space = -3.9; 
+                seq_by_space = 3.0; 
+
+                seq_start_time = -4.0; 
+                seq_end_time = -4.0; 
+                seq_by_time = 2.0; 
+            }
+            if(CV_type.substr(7) == "2"){
+                seq_start_space = -5.5; 
+                seq_end_space = -4.9; 
+                seq_by_space = 3.0; 
+
+                seq_start_time = -4.0; 
+                seq_end_time = -4.0; 
+                seq_by_time = 2.0; 
+            }
+
+
+        } else{
+            seq_start_space = -9.0; 
+            seq_end_space = -5.9; 
+            seq_by_space = 0.25; 
+
+            seq_start_time = -4.0; 
+            seq_end_time = -4.0; 
+            seq_by_time = 2.0; 
+        }
+        if(CV_type == "lambda_1"){
+            // force lambda 
+            seq_start_space = -4.0; 
+            seq_end_space = -3.9; 
+            seq_by_space = 3.0; 
+
+            seq_start_time = -4.0; 
+            seq_end_time = -4.0; 
+            seq_by_time = 2.0; 
+        } else{
+            seq_start_space = -9.0; 
+            seq_end_space = -5.9; 
+            seq_by_space = 0.25; 
+
+            seq_start_time = -4.0; 
+            seq_end_time = -4.0; 
+            seq_by_time = 2.0; 
+        }
+
     }
 
     std::vector<double> lambdas_d; std::vector<double> lambdas_t; std::vector<DVector<double>> lambdas_d_t;
@@ -445,7 +509,7 @@ TEST(case_study_mstrpde_gcv, NO2) {
         model.init();
 
 
-        if(CV_type == "GCV"){
+        if(CV_type == "GCV" || CV_type == "lambda_1"){
 
             // define GCV function and grid of \lambda_D values
 
@@ -628,8 +692,17 @@ TEST(case_study_mstrpde_run, NO2) {
     const bool infraday_analysis = true;  
 
     const bool ME_stations = false;   // caso n_g = n 
-    const bool ME_sensors = false;   // caso RE su tipologia strumentazione
+    const bool ME_sensors = true;   // caso RE su tipologia strumentazione
     // if both false, then caso R,S,U is run  
+
+    bool fill_missing_type; 
+    std::string aggregate_in_other; 
+    if(ME_sensors){
+        fill_missing_type = true;  // choose if to fill the unknown types
+        aggregate_in_other = "2";   
+        // "" means aggregation in "other" type
+        // "2" means no aggregation in "other" type
+    }
 
     std::string results_str; 
     std::string month; 
@@ -643,13 +716,16 @@ TEST(case_study_mstrpde_run, NO2) {
         }
         if(ME_sensors){
             results_str += "_MEsensors";
+            if(fill_missing_type){ 
+                results_str += ("-all" + aggregate_in_other); 
+            }
         }
     } else{
         results_str = "results"; 
     }
 
     unsigned int num_folds;
-    const std::string CV_type = "5-folds";     // "GCV"  "5-folds" "15-folds"
+    const std::string CV_type = "5-folds";     // "lambda_1" "GCV"  "5-folds" "15-folds"
     if(CV_type == "5-folds"){
         num_folds = 5; 
     }
@@ -691,7 +767,7 @@ TEST(case_study_mstrpde_run, NO2) {
 
 
     // choose the type of model
-    std::string est_type = "mean";    // mean mixed mean_dummies 
+    std::string est_type = "mixed";    // mean mixed mean_dummies 
     std::string lambdaT_string; 
     if(est_type == "mean"){
         lambdaT_string = "/lambdaT-2";
@@ -758,7 +834,12 @@ TEST(case_study_mstrpde_run, NO2) {
             path_data = path + "/data_infraday_MEstations/" + month + "/day_" + day_chosen; 
         }
         if(ME_sensors){
-            path_data = path + "/data_infraday_MEsensors/" + month + "/day_" + day_chosen; 
+            if(!fill_missing_type){
+                path_data = path + "/data_infraday_MEsensors/" + month + "/day_" + day_chosen; 
+            } else{
+                path_data = path + "/data_infraday_MEsensors-all" + aggregate_in_other + "/" + month + "/day_" + day_chosen; 
+            }
+
         }
     }
 

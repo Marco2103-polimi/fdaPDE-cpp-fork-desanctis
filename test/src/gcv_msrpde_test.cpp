@@ -872,13 +872,13 @@ TEST(gcv_msrpde_test6, laplacian_semiparametric_samplingatnodes_gridexact) {
 
     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number + "/trial_" + trial_number;
 
-    const unsigned int sim_start = 20; 
+    const unsigned int sim_start = 1; 
     const unsigned int n_sim = 30; 
 
     // run SRPDE and/or MSRPDE ? 
-    const bool run_srpde = true;    // stprde
-    const bool run_msrpde = true;   // mixed-effects anisotropic
-    const bool run_msr_iso = true;  // mixed-effects isotropic
+    const bool run_srpde = false;    // stprde
+    const bool run_msrpde = false;   // mixed-effects anisotropic
+    const bool run_msr_iso = false;  // mixed-effects isotropic
     const bool run_srpde_d = true;   // strpde con dummies
     
     // define domain
