@@ -36,6 +36,11 @@ class SRPDE {
     SRPDE(const std::string& formula, const GeoFrame& gf, Penalty&& penalty) noexcept :
         solver_(), geo_category_(gf[0].category().begin(), gf[0].category().end()) {
         discretize(penalty.get());
+
+        // M save NAN pattern before correction with zeros 
+        Formula formula_(formula);
+        na_pattern_ = na_matrix(gf[0].data().template col<double>(formula_.lhs()));
+
         analyze_data(formula, gf);
     }
     // modifiers
@@ -112,7 +117,15 @@ class SRPDE {
                 edf_cache_[lambda_vec] = model_->edf(r_, seed_);
             }
             double dor = n_ - (q_ + edf_cache_.at(lambda_vec));   // residual degrees of freedom
-            return (n_ / std::pow(dor, 2)) * (model_->fitted() - model_->response()).squaredNorm();
+
+            double norm = 0;
+            vector_t op1 = model_->response();
+            vector_t op2 = model_->fitted();
+            for (int i = 0; i < op1.size(); ++i) {
+                if (!na_pattern_[i]) norm += (op2.coeff(i, 0) - op1.coeff(i, 0))*(op2.coeff(i, 0) - op1.coeff(i, 0));
+            }
+            // return (n_ / std::pow(dor, 2)) * (model_->fitted() - model_->response()).squaredNorm();  --> M: non tiene conto dei NA!
+            return (n_ / std::pow(dor, 2)) * norm; 
         }
         // observers
         const edf_cache_t& edf_cache() const { return edf_cache_; }
@@ -343,6 +356,7 @@ class SRPDE {
     class speckman_t { };
    private:
     solver_t solver_;
+    BinaryMatrix<-1, 1> na_pattern_;   // M aggiunto per poi fare correzione in GCV 
     int n_obs_ = 0, n_covs_ = 0;
     std::vector<ltype> geo_category_;
 };

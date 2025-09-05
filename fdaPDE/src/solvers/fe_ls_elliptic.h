@@ -274,6 +274,13 @@ struct fe_ls_elliptic {
         return;
     }
     template <typename WeightMatrix> void update_response_and_weights(const vector_t& y, const WeightMatrix& W) {
+        // M 
+        std::cout << "in fe_ls: Psi_.rows()=" << Psi_.rows() << std::endl;
+        std::cout << "y.rows()=" << y.rows() << std::endl;
+        std::cout << "n_locs_=" << n_locs_ << std::endl;
+        std::cout << "y.cols()=" << y.cols() << std::endl;
+        std::cout << "W.rows()=" << W.rows() << std::endl;
+        std::cout << "W.cols()=" << W.cols() << std::endl;
         fdapde_assert(
           Psi_.rows() > 0 && y.rows() == n_locs_ && y.cols() == 1 && W.rows() == W.cols() && W.rows() == n_locs_);
         y_ = y;
