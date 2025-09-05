@@ -33,6 +33,10 @@ template <typename VariationalSolver> class QSRPDE {
     QSRPDE(const std::string& formula, const GeoFrame& gf, double alpha, Penalty&& penalty) noexcept :
         solver_(), alpha_(alpha) {
         discretize(penalty.get());
+
+        // M save NAN pattern before correction with zeros 
+        na_pattern_ = na_matrix(gf[0].data().template col<double>(formula_.lhs()));
+
         analyze_data(formula, gf);
     }
     template <typename GeoFrame, typename Penalty>   // default to median fitting
@@ -164,7 +168,7 @@ template <typename VariationalSolver> class QSRPDE {
             double dor = n_ - (q_ + edf_cache_.at(lambda_vec));   // residual degrees of freedom
             double pinball = 0;
             for (int i = 0; i < n_; ++i) {
-                pinball += model_->pinball_loss(model_->y_[i] - model_->mu_[i], std::pow(10, model_->eps_));
+                if (!na_pattern_[i]) pinball += model_->pinball_loss(model_->y_[i] - model_->mu_[i], std::pow(10, model_->eps_));  // M aggiunto if per sommare solo su n_obs_
             }
 	    return (std::pow(pinball, 2) / std::pow(dor, 2));
         }
