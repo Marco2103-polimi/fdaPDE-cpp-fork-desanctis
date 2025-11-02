@@ -211,114 +211,134 @@ DMatrix<double> collapse_rows(DMatrix<double> m, DMatrix<double> unique_flags, u
 
 
 
-// // test 2 
-// //    domain:       c-shaped
-// //    sampling:     locations = nodes
-// //    penalization: laplacian
-// //    covariates:   yes
-// //    BC:           no
-// //    order FE:     1
-// //    GCV optimization: grid exact
-// TEST(gcv_msrpde_test2, laplacian_semiparametric_samplingatnodes_gridexact) {
+// test 2 
+//    domain:       c-shaped
+//    sampling:     locations = nodes
+//    penalization: laplacian
+//    covariates:   yes
+//    BC:           no
+//    order FE:     1
+//    GCV optimization: grid exact
+TEST(gcv_msrpde_test2, laplacian_semiparametric_samplingatnodes_gridexact) {
 
-//     // path test  
-//     std::string test_number = "2";   // ATT controlla calcolo sigma in msrpde.h !!
-//     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-only/Test_" + test_number;
+    // path test  
+    std::string test_number = "2";   // ATT controlla calcolo sigma in msrpde.h !!
+    std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-only/Test_" + test_number;
 
-//     const unsigned int n_sim = 50; 
-//     const unsigned int sim_start = 1; 
+    const unsigned int n_sim = 1;  // 50
+    const unsigned int sim_start = 1; 
+
+    const bool save_results = false; 
     
-//     // define domain
-//     MeshLoader<Triangulation<2, 2>> domain("c_shaped_242");  
+    // define domain
+    MeshLoader<Triangulation<2, 2>> domain("c_shaped_242");  
 
 
-//     // rhs 
-//     DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3, 1);
+    // rhs 
+    DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3, 1);
 
-//     // define regularizing PDE  
-//     auto L = -laplacian<FEM>();   
-//     PDE<decltype(domain.mesh), decltype(L), DMatrix<double>, FEM, fem_order<1>> problem(domain.mesh, L, u);
+    // define regularizing PDE  
+    auto L = -laplacian<FEM>();   
+    PDE<decltype(domain.mesh), decltype(L), DMatrix<double>, FEM, fem_order<1>> problem(domain.mesh, L, u);
 
-//     // Read 
-//     DMatrix<double> X = read_csv<double>(R_path + "/X.csv");
-//     DMatrix<double> Z = read_csv<double>(R_path + "/Z.csv");  
-//     DVector<unsigned int> ids_groups = read_csv<unsigned int>(R_path + "/ids_groups.csv");
-
-//     std::vector<double> lambdas; 
-//     for(double x = -3.0; x <= +2.0; x += 0.55555555) lambdas.push_back(std::pow(10, x));
-
+    // Read 
+    DMatrix<double> X = read_csv<double>(R_path + "/X.csv");
+    //DMatrix<double> Z = read_csv<double>(R_path + "/Z.csv");  
     
-//     DMatrix<double> lambdas_mat;
-//     lambdas_mat.resize(lambdas.size(), 1); 
-//     for(auto i = 0; i < lambdas_mat.rows(); ++i){
-//         // std::cout << "inserting lambdas[i] = " << std::setprecision(16) << lambdas[i] << std::endl;
-//         lambdas_mat(i,0) = lambdas[i]; 
-//     }
-//     double best_lambda; 
+    // TEMP x testare con lib nuova: 
+    DMatrix<double> Z = DMatrix<double>::Ones(X.rows(), 1);
+    std::cout << "dim Z = " << Z.rows() << ";" << Z.cols() << std::endl;
+    std::cout << "max(Z) = " << Z.maxCoeff() << std::endl; 
+ 
+    
+    
+    DVector<unsigned int> ids_groups = read_csv<unsigned int>(R_path + "/ids_groups.csv");
+
+    std::vector<double> lambdas; 
+    for(double x = -3.0; x <= +2.0; x += 0.55555555) lambdas.push_back(std::pow(10, x));
+    // for(double x = 2.9; x <= 3.0; x += 0.55555555) lambdas.push_back(std::pow(10, x));
+
+    DMatrix<double> lambdas_mat;
+    lambdas_mat.resize(lambdas.size(), 1); 
+    for(auto i = 0; i < lambdas_mat.rows(); ++i){
+        // std::cout << "inserting lambdas[i] = " << std::setprecision(16) << lambdas[i] << std::endl;
+        lambdas_mat(i,0) = lambdas[i]; 
+    }
+    double best_lambda; 
+
+    std::cout << "Lambda grid: " << lambdas_mat << std::endl;
 
 
-//     // Simulations  
-//     for(auto sim = sim_start; sim <= n_sim; ++sim){
-//         std::cout << "--------------------Simulation #" << std::to_string(sim) << "-------------" << std::endl; 
+    // Simulations  
+    for(auto sim = sim_start; sim <= n_sim; ++sim){
+        std::cout << "--------------------Simulation #" << std::to_string(sim) << "-------------" << std::endl; 
 
-//         // load data from .csv files
-//         DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
+        // load data from .csv files
+        DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
 
-//         BlockFrame<double, int> df;
-//         df.insert(OBSERVATIONS_BLK, y);
-//         df.insert(DESIGN_MATRIX_BLK, X);
-//         df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);
+        BlockFrame<double, int> df;
+        df.insert(OBSERVATIONS_BLK, y);
+        df.insert(DESIGN_MATRIX_BLK, X);
+        df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);
 
-//         std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
+        std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
 
 
-//         std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
+        std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
 
-//         MSRPDE<SpaceOnly> model_gcv(problem, Sampling::mesh_nodes); 
+        MSRPDE<SpaceOnly> model_gcv(problem, Sampling::mesh_nodes); 
         
-//         // set model 
-//         model_gcv.set_data(df);
-//         model_gcv.set_ids_groups(ids_groups); 
+        // set model 
+        model_gcv.set_data(df);
+        model_gcv.set_ids_groups(ids_groups); 
 
-//         // define GCV function and grid of \lambda_D values
-//         auto GCV = model_gcv.gcv<ExactEDF>();
-//         // optimize GCV
-//         Grid<fdapde::Dynamic> opt;
-//         opt.optimize(GCV, lambdas_mat);
+        // define GCV function and grid of \lambda_D values
+        auto GCV = model_gcv.gcv<ExactEDF>();
+        // optimize GCV
+        Grid<fdapde::Dynamic> opt;
+        opt.optimize(GCV, lambdas_mat);
         
-//         best_lambda = opt.optimum()(0,0);
+        best_lambda = opt.optimum()(0,0);
 
-//         std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+        std::cout << "Optimal lambda: " << std::setprecision(16) << best_lambda << std::endl;
+        double sum_abs_of_elems = 0.;
+        std::vector<double> scores = GCV.gcvs();
+        for(std::vector<double>::iterator it = scores.begin(); it != scores.end(); ++it)
+            sum_abs_of_elems += std::abs(*it);
+        std::cout << "sum abs scores: " << std::setprecision(16) << sum_abs_of_elems << std::endl;
 
-//         // Save lambda sequence 
-//         std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq.csv");
-//         for(std::size_t i = 0; i < lambdas.size(); ++i) 
-//             fileLambdaS << std::setprecision(16) << lambdas[i] << "\n"; 
-//         fileLambdaS.close();
+        if(save_results){
+            // Save lambda sequence 
+            std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq.csv");
+            for(std::size_t i = 0; i < lambdas.size(); ++i) 
+                fileLambdaS << std::setprecision(16) << lambdas[i] << "\n"; 
+            fileLambdaS.close();
 
-//         // Save lambda GCVopt for all alphas
-//         std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambdas_opt.csv");
-//         if(fileLambdaoptS.is_open()){
-//             fileLambdaoptS << std::setprecision(16) << best_lambda;
-//             fileLambdaoptS.close();
-//         }
+            // Save lambda GCVopt for all alphas
+            std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambdas_opt.csv");
+            if(fileLambdaoptS.is_open()){
+                fileLambdaoptS << std::setprecision(16) << best_lambda;
+                fileLambdaoptS.close();
+            }
 
-//         // Save GCV 
-//         std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
-//         for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
-//             fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
-//         fileGCV_scores.close();
-
-
-//         std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
-//         for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-//             fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-//         fileGCV_edf.close();
+            // Save GCV 
+            std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
+            for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
+                fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
+            fileGCV_scores.close();
 
 
+            std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
+            for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+                fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+            fileGCV_edf.close();
+        }
 
-//     }
-// }
+
+
+
+    }
+}
 
 
 // // test 3 (space-time) 
@@ -855,611 +875,611 @@ DMatrix<double> collapse_rows(DMatrix<double> m, DMatrix<double> unique_flags, u
 // }
 
 
-// test 6 (space-time) 
-//    domain:       unit square
-//    sampling:     locations != nodes
-//    space penalization: anisotropic diffusion 
-//    time penalization: separable 
-//    covariates:   yes
-//    BC:           no
-//    order FE:     1
-//    GCV optimization: grid exact
-TEST(gcv_msrpde_test6, laplacian_semiparametric_samplingatnodes_gridexact) {
+// // test 6 (space-time) 
+// //    domain:       unit square
+// //    sampling:     locations != nodes
+// //    space penalization: anisotropic diffusion 
+// //    time penalization: separable 
+// //    covariates:   yes
+// //    BC:           no
+// //    order FE:     1
+// //    GCV optimization: grid exact
+// TEST(gcv_msrpde_test6, laplacian_semiparametric_samplingatnodes_gridexact) {
 
-    // path test  
-    std::string test_number = "6";   
-    const std::string trial_number = "12";  // "1" "2" "3" "4" "5" "6" "7" "8" "9" "10" "11" "12"
+//     // path test  
+//     std::string test_number = "6";   
+//     const std::string trial_number = "12";  // "1" "2" "3" "4" "5" "6" "7" "8" "9" "10" "11" "12"
 
-    std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number + "/trial_" + trial_number;
+//     std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/space-time/Test_" + test_number + "/trial_" + trial_number;
 
-    const unsigned int sim_start = 1; 
-    const unsigned int n_sim = 30; 
+//     const unsigned int sim_start = 1; 
+//     const unsigned int n_sim = 30; 
 
-    // run SRPDE and/or MSRPDE ? 
-    const bool run_srpde = false;    // stprde
-    const bool run_msrpde = false;   // mixed-effects anisotropic
-    const bool run_msr_iso = false;  // mixed-effects isotropic
-    const bool run_srpde_d = true;   // strpde con dummies
+//     // run SRPDE and/or MSRPDE ? 
+//     const bool run_srpde = false;    // stprde
+//     const bool run_msrpde = false;   // mixed-effects anisotropic
+//     const bool run_msr_iso = false;  // mixed-effects isotropic
+//     const bool run_srpde_d = true;   // strpde con dummies
     
-    // define domain
-    const double t0 = 0.0;
-    const double tf = 1.0;
-    unsigned int M;  // number of time mesh nodes 
-    if(trial_number == "1" || trial_number == "2"){
-        M = 11; 
-    }
-    if(trial_number == "3" || trial_number == "4" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9" || trial_number == "10" || trial_number == "11" || trial_number == "12"){
-        M = 8; 
-    }
-    Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
+//     // define domain
+//     const double t0 = 0.0;
+//     const double tf = 1.0;
+//     unsigned int M;  // number of time mesh nodes 
+//     if(trial_number == "1" || trial_number == "2"){
+//         M = 11; 
+//     }
+//     if(trial_number == "3" || trial_number == "4" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9" || trial_number == "10" || trial_number == "11" || trial_number == "12"){
+//         M = 8; 
+//     }
+//     Triangulation<1, 1> time_mesh(t0, tf, M-1);  // interval [t0, tf] with M-1 knots
 
-    std::string N_string; 
-    if(trial_number == "1" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9" || trial_number == "10" || trial_number == "11" || trial_number == "12"){
-        N_string = "476"; 
-    }
-    if(trial_number == "2" || trial_number == "3" || trial_number == "4"){
-        N_string = "617"; 
-    }
-    MeshLoader<Triangulation<2, 2>> domain("unit_square_reduced_censoring_" + N_string);  
+//     std::string N_string; 
+//     if(trial_number == "1" || trial_number == "5" || trial_number == "6" || trial_number == "7" || trial_number == "8" || trial_number == "9" || trial_number == "10" || trial_number == "11" || trial_number == "12"){
+//         N_string = "476"; 
+//     }
+//     if(trial_number == "2" || trial_number == "3" || trial_number == "4"){
+//         N_string = "617"; 
+//     }
+//     MeshLoader<Triangulation<2, 2>> domain("unit_square_reduced_censoring_" + N_string);  
 
-    const unsigned int max_fpirls_iter = 15; 
+//     const unsigned int max_fpirls_iter = 15; 
 
-    // rhs 
-    DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
+//     // rhs 
+//     DMatrix<double> u = DMatrix<double>::Zero(domain.mesh.n_cells() * 3 * time_mesh.n_nodes(), 1);
 
-    // define regularizing PDE in time
-    auto Lt = -bilaplacian<SPLINE>();
-    PDE<Triangulation<1, 1>, decltype(Lt), DMatrix<double>, SPLINE, spline_order<3>> time_penalty(time_mesh, Lt);
+//     // define regularizing PDE in time
+//     auto Lt = -bilaplacian<SPLINE>();
+//     PDE<Triangulation<1, 1>, decltype(Lt), DMatrix<double>, SPLINE, spline_order<3>> time_penalty(time_mesh, Lt);
 
-    // Read 
-    DMatrix<double> X;  // read below since depedent on the model (dummy or not dummy)
+//     // Read 
+//     DMatrix<double> X;  // read below since depedent on the model (dummy or not dummy)
 
-    DMatrix<double> Z = read_csv<double>(R_path + "/Z.csv");  
-    DVector<unsigned int> ids_groups = read_csv<unsigned int>(R_path + "/ids_groups.csv");
+//     DMatrix<double> Z = read_csv<double>(R_path + "/Z.csv");  
+//     DVector<unsigned int> ids_groups = read_csv<unsigned int>(R_path + "/ids_groups.csv");
 
-    // Read locations
-    DMatrix<double> time_locs = read_csv<double>(R_path + "/time_locs.csv");  
-    std::cout << "dim time locs = " << time_locs.rows() << ";" << time_locs.cols() << std::endl;
-    std::cout << "max(time_locs) = " << time_locs.maxCoeff() << std::endl; 
+//     // Read locations
+//     DMatrix<double> time_locs = read_csv<double>(R_path + "/time_locs.csv");  
+//     std::cout << "dim time locs = " << time_locs.rows() << ";" << time_locs.cols() << std::endl;
+//     std::cout << "max(time_locs) = " << time_locs.maxCoeff() << std::endl; 
 
-    DMatrix<double> space_locs = read_csv<double>(R_path + "/space_locs.csv");  
-    std::cout << "dim space_locs locs = " << space_locs.rows() << ";" << space_locs.cols() << std::endl;
-    std::cout << "max(space_locs) = " << space_locs.maxCoeff() << std::endl;
+//     DMatrix<double> space_locs = read_csv<double>(R_path + "/space_locs.csv");  
+//     std::cout << "dim space_locs locs = " << space_locs.rows() << ";" << space_locs.cols() << std::endl;
+//     std::cout << "max(space_locs) = " << space_locs.maxCoeff() << std::endl;
 
-    std::vector<double> lambdas_d; std::vector<double> lambdas_t; std::vector<DVector<double>> lambdas_d_t;
+//     std::vector<double> lambdas_d; std::vector<double> lambdas_t; std::vector<DVector<double>> lambdas_d_t;
     
-    if(trial_number == "1"){  
-        for(double xs = -3.0; xs <= -2.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//     if(trial_number == "1"){  
+//         for(double xs = -3.0; xs <= -2.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "2"){
-        for(double xs = -6.0; xs <= -3.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "2"){
+//         for(double xs = -6.0; xs <= -3.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "3"){
-        for(double xs = -3.5; xs <= -2.75; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "3"){
+//         for(double xs = -3.5; xs <= -2.75; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "4"){
-        for(double xs = -4.5; xs <= -2.5; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "4"){
+//         for(double xs = -4.5; xs <= -2.5; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "5"){
-        for(double xs = -3.5; xs <= -2.74; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "5"){
+//         for(double xs = -3.5; xs <= -2.74; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "6"){
-        for(double xs = -5.5; xs <= -2.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "6"){
+//         for(double xs = -5.5; xs <= -2.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "7"){
-        for(double xs = -5.5; xs <= -2.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "7"){
+//         for(double xs = -5.5; xs <= -2.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "8"){
-        for(double xs = -4.0; xs <= -2.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "8"){
+//         for(double xs = -4.0; xs <= -2.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "9"){
-        for(double xs = -5.5; xs <= -2.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "9"){
+//         for(double xs = -5.5; xs <= -2.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "10"){
-        for(double xs = -6.5; xs <= -1.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "10"){
+//         for(double xs = -6.5; xs <= -1.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "11"){
-        for(double xs = -5.5; xs <= -1.5; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "11"){
+//         for(double xs = -5.5; xs <= -1.5; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
-    if(trial_number == "12"){
-        for(double xs = -6.5; xs <= -1.0; xs += 0.25)
-        lambdas_d.push_back(std::pow(10,xs));
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
+//     if(trial_number == "12"){
+//         for(double xs = -6.5; xs <= -1.0; xs += 0.25)
+//         lambdas_d.push_back(std::pow(10,xs));
 
-        for(double xt = -4.0; xt <= -4.0; xt += 2.0)
-            lambdas_t.push_back(std::pow(10,xt));
-    }
+//         for(double xt = -4.0; xt <= -4.0; xt += 2.0)
+//             lambdas_t.push_back(std::pow(10,xt));
+//     }
     
 
-    for(auto i = 0; i < lambdas_d.size(); ++i)
-        for(auto j = 0; j < lambdas_t.size(); ++j) 
-            lambdas_d_t.push_back(SVector<2>(lambdas_d[i], lambdas_t[j]));
+//     for(auto i = 0; i < lambdas_d.size(); ++i)
+//         for(auto j = 0; j < lambdas_t.size(); ++j) 
+//             lambdas_d_t.push_back(SVector<2>(lambdas_d[i], lambdas_t[j]));
 
-    DMatrix<double> lambdas_mat(lambdas_d.size()*lambdas_t.size(), 2);
-    for(int i = 0; i < lambdas_d.size(); ++i) { 
-        for (int j = 0; j < lambdas_t.size(); ++j) {
-            lambdas_mat(i * lambdas_t.size() + j, 0) = lambdas_d[i];
-            lambdas_mat(i * lambdas_t.size() + j, 1) = lambdas_t[j];
-        }
-    }
+//     DMatrix<double> lambdas_mat(lambdas_d.size()*lambdas_t.size(), 2);
+//     for(int i = 0; i < lambdas_d.size(); ++i) { 
+//         for (int j = 0; j < lambdas_t.size(); ++j) {
+//             lambdas_mat(i * lambdas_t.size() + j, 0) = lambdas_d[i];
+//             lambdas_mat(i * lambdas_t.size() + j, 1) = lambdas_t[j];
+//         }
+//     }
 
-    // print lambdas_d in scientific notation
-    for(int i=0; i < lambdas_d.size(); ++i){
-        std::cout << "lambdas_d[" << i << "] = " << std::scientific << lambdas_d[i] << std::endl;
-    }
-    // print lambdas_t in scientific notation
-    for(int i=0; i < lambdas_t.size(); ++i){
-        std::cout << "lambdas_t[" << i << "] = " << std::scientific << lambdas_t[i] << std::endl;
-    }
-
-
-    SVector<2> best_lambda;  
+//     // print lambdas_d in scientific notation
+//     for(int i=0; i < lambdas_d.size(); ++i){
+//         std::cout << "lambdas_d[" << i << "] = " << std::scientific << lambdas_d[i] << std::endl;
+//     }
+//     // print lambdas_t in scientific notation
+//     for(int i=0; i < lambdas_t.size(); ++i){
+//         std::cout << "lambdas_t[" << i << "] = " << std::scientific << lambdas_t[i] << std::endl;
+//     }
 
 
-    // Simulations MSRPDE  
-    if(run_msrpde){
+//     SVector<2> best_lambda;  
 
-        X = read_csv<double>(R_path + "/X.csv"); 
-        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
-        std::cout << "max(X) = " << X.maxCoeff() << std::endl;
 
-        for(auto sim = sim_start; sim <= n_sim; ++sim){
+//     // Simulations MSRPDE  
+//     if(run_msrpde){
 
-            std::cout << "--------------------Simulation GCV MSRPDE #" << std::to_string(sim) << "-------------" << std::endl; 
+//         X = read_csv<double>(R_path + "/X.csv"); 
+//         std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+//         std::cout << "max(X) = " << X.maxCoeff() << std::endl;
+
+//         for(auto sim = sim_start; sim <= n_sim; ++sim){
+
+//             std::cout << "--------------------Simulation GCV MSRPDE #" << std::to_string(sim) << "-------------" << std::endl; 
     
-            // load data from .csv files
-            DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
-            std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
+//             // load data from .csv files
+//             DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
+//             std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
     
-            BlockFrame<double, int> df;
-            df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
-            df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
-            df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);   // ATT: insert for space-time covariates!
+//             BlockFrame<double, int> df;
+//             df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
+//             df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
+//             df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);   // ATT: insert for space-time covariates!
                     
-            std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
-            std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
+//             std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
+//             std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit"; 
     
-            // define regularizing PDE  in space
-            SMatrix<2> K = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/K.csv"); 
-            auto Ld = -diffusion<FEM>(K);   // anisotropic diffusion  
-            PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
+//             // define regularizing PDE  in space
+//             SMatrix<2> K = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/K.csv"); 
+//             auto Ld = -diffusion<FEM>(K);   // anisotropic diffusion  
+//             PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
-            // Start measuring time
-            auto start_time_gcv = high_resolution_clock::now();
+//             // Start measuring time
+//             auto start_time_gcv = high_resolution_clock::now();
     
-            MSRPDE<SpaceTimeSeparable> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
-            model_gcv.set_spatial_locations(space_locs);
-            model_gcv.set_temporal_locations(time_locs);
+//             MSRPDE<SpaceTimeSeparable> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
+//             model_gcv.set_spatial_locations(space_locs);
+//             model_gcv.set_temporal_locations(time_locs);
             
-            // set model 
-            model_gcv.set_data(df);
-            model_gcv.set_ids_groups(ids_groups); 
+//             // set model 
+//             model_gcv.set_data(df);
+//             model_gcv.set_ids_groups(ids_groups); 
     
-            model_gcv.set_fpirls_max_iter(max_fpirls_iter); 
+//             model_gcv.set_fpirls_max_iter(max_fpirls_iter); 
     
-            // define GCV function and grid of \lambda_D values
-            auto GCV = model_gcv.gcv<ExactEDF>();
-            // optimize GCV
-            Grid<fdapde::Dynamic> opt;
-            opt.optimize(GCV, lambdas_mat);
+//             // define GCV function and grid of \lambda_D values
+//             auto GCV = model_gcv.gcv<ExactEDF>();
+//             // optimize GCV
+//             Grid<fdapde::Dynamic> opt;
+//             opt.optimize(GCV, lambdas_mat);
     
-            // Stop measuring time
-            auto stop_time_gcv = high_resolution_clock::now();
-            auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
-            std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
+//             // Stop measuring time
+//             auto stop_time_gcv = high_resolution_clock::now();
+//             auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
+//             std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
      
             
-            best_lambda = opt.optimum();
+//             best_lambda = opt.optimum();
     
-            std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+//             std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
     
-            // Save lambda sequence 
-            std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
-            for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
-                fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
-            fileLambdaS.close();
+//             // Save lambda sequence 
+//             std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
+//             for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
+//                 fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
+//             fileLambdaS.close();
     
-            std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
-            for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
-                fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
-            fileLambda_T_Seq.close();
-    
-    
-            // Save lambda GCVopt for all alphas
-            std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
-            if(fileLambdaoptS.is_open()){
-              fileLambdaoptS << std::setprecision(16) << best_lambda[0];
-              fileLambdaoptS.close();
-            }
-            std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
-            if(fileLambdaoptT.is_open()){
-              fileLambdaoptT << std::setprecision(16) << best_lambda[1];
-              fileLambdaoptT.close();
-            }
-    
-            // Save GCV 
-            std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
-            std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
-            for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
-                fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
-            fileGCV_scores.close();
+//             std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
+//             for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
+//                 fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
+//             fileLambda_T_Seq.close();
     
     
-            // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
-            // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-            //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-            // fileGCV_edf.close();
+//             // Save lambda GCVopt for all alphas
+//             std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
+//             if(fileLambdaoptS.is_open()){
+//               fileLambdaoptS << std::setprecision(16) << best_lambda[0];
+//               fileLambdaoptS.close();
+//             }
+//             std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
+//             if(fileLambdaoptT.is_open()){
+//               fileLambdaoptT << std::setprecision(16) << best_lambda[1];
+//               fileLambdaoptT.close();
+//             }
+    
+//             // Save GCV 
+//             std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
+//             std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
+//             for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
+//                 fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
+//             fileGCV_scores.close();
     
     
-            std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
-            if(file_time_gcv.is_open()){
-                file_time_gcv << duration_gcv << "\n"; // Write execution time
-                file_time_gcv.close();
-            }
+//             // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
+//             // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+//             //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+//             // fileGCV_edf.close();
+    
+    
+//             std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
+//             if(file_time_gcv.is_open()){
+//                 file_time_gcv << duration_gcv << "\n"; // Write execution time
+//                 file_time_gcv.close();
+//             }
             
     
-        }
+//         }
     
 
-    }
+//     }
 
-    // Simulations SRPDE
-    if(run_srpde){
+//     // Simulations SRPDE
+//     if(run_srpde){
 
-        X = read_csv<double>(R_path + "/X.csv"); 
-        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
-        std::cout << "max(X) = " << X.maxCoeff() << std::endl;
+//         X = read_csv<double>(R_path + "/X.csv"); 
+//         std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+//         std::cout << "max(X) = " << X.maxCoeff() << std::endl;
 
-        for(auto sim = sim_start; sim <= n_sim; ++sim){
+//         for(auto sim = sim_start; sim <= n_sim; ++sim){
 
-            std::cout << "--------------------Simulation GCV SRPDE #" << std::to_string(sim) << "-------------" << std::endl; 
+//             std::cout << "--------------------Simulation GCV SRPDE #" << std::to_string(sim) << "-------------" << std::endl; 
     
-            // load data from .csv files
-            DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
-            std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
+//             // load data from .csv files
+//             DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
+//             std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
     
-            BlockFrame<double, int> df;
-            df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
-            df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
+//             BlockFrame<double, int> df;
+//             df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
+//             df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
                     
-            std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde"; 
-            std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde"; 
+//             std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde"; 
+//             std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde"; 
     
-            // define regularizing PDE  in space  --> NOTE: parameter cascading is common between the two models, so I read from the same folder!
-            SMatrix<2> K = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/K.csv"); 
-            auto Ld = -diffusion<FEM>(K);   // anisotropic diffusion  
-            PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
+//             // define regularizing PDE  in space  --> NOTE: parameter cascading is common between the two models, so I read from the same folder!
+//             SMatrix<2> K = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/K.csv"); 
+//             auto Ld = -diffusion<FEM>(K);   // anisotropic diffusion  
+//             PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
-            // Start measuring time
-            auto start_time_gcv = high_resolution_clock::now();
+//             // Start measuring time
+//             auto start_time_gcv = high_resolution_clock::now();
     
-            STRPDE<SpaceTimeSeparable, fdapde::monolithic> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
-            model_gcv.set_spatial_locations(space_locs);
-            model_gcv.set_temporal_locations(time_locs);
+//             STRPDE<SpaceTimeSeparable, fdapde::monolithic> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
+//             model_gcv.set_spatial_locations(space_locs);
+//             model_gcv.set_temporal_locations(time_locs);
             
-            // set model 
-            model_gcv.set_data(df);
+//             // set model 
+//             model_gcv.set_data(df);
     
-            // define GCV function and grid of \lambda_D values
-            auto GCV = model_gcv.gcv<ExactEDF>();
-            // optimize GCV
-            Grid<fdapde::Dynamic> opt;
-            opt.optimize(GCV, lambdas_mat);
+//             // define GCV function and grid of \lambda_D values
+//             auto GCV = model_gcv.gcv<ExactEDF>();
+//             // optimize GCV
+//             Grid<fdapde::Dynamic> opt;
+//             opt.optimize(GCV, lambdas_mat);
     
-            // Stop measuring time
-            auto stop_time_gcv = high_resolution_clock::now();
-            auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
-            std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
+//             // Stop measuring time
+//             auto stop_time_gcv = high_resolution_clock::now();
+//             auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
+//             std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
      
             
-            best_lambda = opt.optimum();
+//             best_lambda = opt.optimum();
     
-            std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+//             std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
     
-            // Save lambda sequence 
-            std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
-            for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
-                fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
-            fileLambdaS.close();
+//             // Save lambda sequence 
+//             std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
+//             for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
+//                 fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
+//             fileLambdaS.close();
     
-            std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
-            for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
-                fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
-            fileLambda_T_Seq.close();
-    
-    
-            // Save lambda GCVopt for all alphas
-            std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
-            if(fileLambdaoptS.is_open()){
-              fileLambdaoptS << std::setprecision(16) << best_lambda[0];
-              fileLambdaoptS.close();
-            }
-            std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
-            if(fileLambdaoptT.is_open()){
-              fileLambdaoptT << std::setprecision(16) << best_lambda[1];
-              fileLambdaoptT.close();
-            }
-    
-            // Save GCV 
-            std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
-            std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
-            for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
-                fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
-            fileGCV_scores.close();
+//             std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
+//             for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
+//                 fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
+//             fileLambda_T_Seq.close();
     
     
-            // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
-            // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-            //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-            // fileGCV_edf.close();
+//             // Save lambda GCVopt for all alphas
+//             std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
+//             if(fileLambdaoptS.is_open()){
+//               fileLambdaoptS << std::setprecision(16) << best_lambda[0];
+//               fileLambdaoptS.close();
+//             }
+//             std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
+//             if(fileLambdaoptT.is_open()){
+//               fileLambdaoptT << std::setprecision(16) << best_lambda[1];
+//               fileLambdaoptT.close();
+//             }
+    
+//             // Save GCV 
+//             std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
+//             std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
+//             for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
+//                 fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
+//             fileGCV_scores.close();
     
     
-            std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
-            if(file_time_gcv.is_open()){
-                file_time_gcv << duration_gcv << "\n"; // Write execution time
-                file_time_gcv.close();
-            }
+//             // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
+//             // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+//             //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+//             // fileGCV_edf.close();
+    
+    
+//             std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
+//             if(file_time_gcv.is_open()){
+//                 file_time_gcv << duration_gcv << "\n"; // Write execution time
+//                 file_time_gcv.close();
+//             }
             
     
-        }
+//         }
     
 
-    }
+//     }
 
-    // Simulations MSRPDE  
-    if(run_msr_iso){
+//     // Simulations MSRPDE  
+//     if(run_msr_iso){
 
-        X = read_csv<double>(R_path + "/X.csv"); 
-        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
-        std::cout << "max(X) = " << X.maxCoeff() << std::endl;
+//         X = read_csv<double>(R_path + "/X.csv"); 
+//         std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+//         std::cout << "max(X) = " << X.maxCoeff() << std::endl;
 
-        for(auto sim = sim_start; sim <= n_sim; ++sim){
+//         for(auto sim = sim_start; sim <= n_sim; ++sim){
 
-            std::cout << "--------------------Simulation GCV MSR-ISO #" << std::to_string(sim) << "-------------" << std::endl; 
+//             std::cout << "--------------------Simulation GCV MSR-ISO #" << std::to_string(sim) << "-------------" << std::endl; 
     
-            // load data from .csv files
-            DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
-            std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
+//             // load data from .csv files
+//             DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
+//             std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
     
-            BlockFrame<double, int> df;
-            df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
-            df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
-            df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);   // ATT: insert for space-time covariates!
+//             BlockFrame<double, int> df;
+//             df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
+//             df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
+//             df.insert(DESIGN_MATRIX_RANDOM_BLK, Z);   // ATT: insert for space-time covariates!
                     
-            std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_iso"; 
-            std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_iso"; 
+//             std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_iso"; 
+//             std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_iso"; 
     
-            // define regularizing PDE in space
-            auto Ld = -laplacian<FEM>();   // laplacian diffusion  
-            PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
+//             // define regularizing PDE in space
+//             auto Ld = -laplacian<FEM>();   // laplacian diffusion  
+//             PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
-            // Start measuring time
-            auto start_time_gcv = high_resolution_clock::now();
+//             // Start measuring time
+//             auto start_time_gcv = high_resolution_clock::now();
     
-            MSRPDE<SpaceTimeSeparable> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
-            model_gcv.set_spatial_locations(space_locs);
-            model_gcv.set_temporal_locations(time_locs);
+//             MSRPDE<SpaceTimeSeparable> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
+//             model_gcv.set_spatial_locations(space_locs);
+//             model_gcv.set_temporal_locations(time_locs);
             
-            // set model 
-            model_gcv.set_data(df);
-            model_gcv.set_ids_groups(ids_groups); 
+//             // set model 
+//             model_gcv.set_data(df);
+//             model_gcv.set_ids_groups(ids_groups); 
     
-            model_gcv.set_fpirls_max_iter(max_fpirls_iter); 
+//             model_gcv.set_fpirls_max_iter(max_fpirls_iter); 
     
-            // define GCV function and grid of \lambda_D values
-            auto GCV = model_gcv.gcv<ExactEDF>();
-            // optimize GCV
-            Grid<fdapde::Dynamic> opt;
-            opt.optimize(GCV, lambdas_mat);
+//             // define GCV function and grid of \lambda_D values
+//             auto GCV = model_gcv.gcv<ExactEDF>();
+//             // optimize GCV
+//             Grid<fdapde::Dynamic> opt;
+//             opt.optimize(GCV, lambdas_mat);
     
-            // Stop measuring time
-            auto stop_time_gcv = high_resolution_clock::now();
-            auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
-            std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
+//             // Stop measuring time
+//             auto stop_time_gcv = high_resolution_clock::now();
+//             auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
+//             std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
      
             
-            best_lambda = opt.optimum();
+//             best_lambda = opt.optimum();
     
-            std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+//             std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
     
-            // Save lambda sequence 
-            std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
-            for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
-                fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
-            fileLambdaS.close();
+//             // Save lambda sequence 
+//             std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
+//             for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
+//                 fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
+//             fileLambdaS.close();
     
-            std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
-            for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
-                fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
-            fileLambda_T_Seq.close();
-    
-    
-            // Save lambda GCVopt for all alphas
-            std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
-            if(fileLambdaoptS.is_open()){
-              fileLambdaoptS << std::setprecision(16) << best_lambda[0];
-              fileLambdaoptS.close();
-            }
-            std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
-            if(fileLambdaoptT.is_open()){
-              fileLambdaoptT << std::setprecision(16) << best_lambda[1];
-              fileLambdaoptT.close();
-            }
-    
-            // Save GCV 
-            std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
-            std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
-            for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
-                fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
-            fileGCV_scores.close();
+//             std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
+//             for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
+//                 fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
+//             fileLambda_T_Seq.close();
     
     
-            // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
-            // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-            //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-            // fileGCV_edf.close();
+//             // Save lambda GCVopt for all alphas
+//             std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
+//             if(fileLambdaoptS.is_open()){
+//               fileLambdaoptS << std::setprecision(16) << best_lambda[0];
+//               fileLambdaoptS.close();
+//             }
+//             std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
+//             if(fileLambdaoptT.is_open()){
+//               fileLambdaoptT << std::setprecision(16) << best_lambda[1];
+//               fileLambdaoptT.close();
+//             }
+    
+//             // Save GCV 
+//             std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
+//             std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
+//             for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
+//                 fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
+//             fileGCV_scores.close();
     
     
-            std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
-            if(file_time_gcv.is_open()){
-                file_time_gcv << duration_gcv << "\n"; // Write execution time
-                file_time_gcv.close();
-            }
+//             // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
+//             // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+//             //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+//             // fileGCV_edf.close();
+    
+    
+//             std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
+//             if(file_time_gcv.is_open()){
+//                 file_time_gcv << duration_gcv << "\n"; // Write execution time
+//                 file_time_gcv.close();
+//             }
             
     
-        }
+//         }
     
 
-    }
+//     }
 
-    // Simulations SRPDE-D
-    if(run_srpde_d){
+//     // Simulations SRPDE-D
+//     if(run_srpde_d){
 
-        X = read_csv<double>(R_path + "/X_dummies.csv"); 
-        std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
-        std::cout << "max(X) = " << X.maxCoeff() << std::endl;
+//         X = read_csv<double>(R_path + "/X_dummies.csv"); 
+//         std::cout << "dim X = " << X.rows() << ";" << X.cols() << std::endl;
+//         std::cout << "max(X) = " << X.maxCoeff() << std::endl;
 
-        for(auto sim = sim_start; sim <= n_sim; ++sim){
+//         for(auto sim = sim_start; sim <= n_sim; ++sim){
 
-            std::cout << "--------------------Simulation GCV SRPDE-D #" << std::to_string(sim) << "-------------" << std::endl; 
+//             std::cout << "--------------------Simulation GCV SRPDE-D #" << std::to_string(sim) << "-------------" << std::endl; 
     
-            // load data from .csv files
-            DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
-            std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
+//             // load data from .csv files
+//             DMatrix<double> y = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/y.csv");
+//             std::cout << "dim y = " << y.rows() << "," << y.cols() << std::endl;
     
-            BlockFrame<double, int> df;
-            df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
-            df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
+//             BlockFrame<double, int> df;
+//             df.stack(OBSERVATIONS_BLK, y);           // ATT: stack for space-time data!
+//             df.insert(DESIGN_MATRIX_BLK, X);         // ATT: insert for space-time covariates!
                     
-            std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde_d"; 
-            std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde_d"; 
+//             std::string solutions_path_gcv = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde_d"; 
+//             std::string solution_path = R_path + "/simulations/sim_" + std::to_string(sim) + "/fit_srpde_d"; 
     
-            // define regularizing PDE  in space  --> NOTE: parameter cascading is common between the two models, so I read from the same folder!
-            SMatrix<2> K = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/K_dummies.csv"); 
-            auto Ld = -diffusion<FEM>(K);   // anisotropic diffusion  
-            PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
+//             // define regularizing PDE  in space  --> NOTE: parameter cascading is common between the two models, so I read from the same folder!
+//             SMatrix<2> K = read_csv<double>(R_path + "/simulations/sim_" + std::to_string(sim) + "/K_dummies.csv"); 
+//             auto Ld = -diffusion<FEM>(K);   // anisotropic diffusion  
+//             PDE<decltype(domain.mesh), decltype(Ld), DMatrix<double>, FEM, fem_order<1>> space_penalty(domain.mesh, Ld, u);
     
-            // Start measuring time
-            auto start_time_gcv = high_resolution_clock::now();
+//             // Start measuring time
+//             auto start_time_gcv = high_resolution_clock::now();
     
-            STRPDE<SpaceTimeSeparable, fdapde::monolithic> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
-            model_gcv.set_spatial_locations(space_locs);
-            model_gcv.set_temporal_locations(time_locs);
+//             STRPDE<SpaceTimeSeparable, fdapde::monolithic> model_gcv(space_penalty, time_penalty, Sampling::pointwise);    
+//             model_gcv.set_spatial_locations(space_locs);
+//             model_gcv.set_temporal_locations(time_locs);
             
-            // set model 
-            model_gcv.set_data(df);
+//             // set model 
+//             model_gcv.set_data(df);
     
-            // define GCV function and grid of \lambda_D values
-            auto GCV = model_gcv.gcv<ExactEDF>();
-            // optimize GCV
-            Grid<fdapde::Dynamic> opt;
-            opt.optimize(GCV, lambdas_mat);
+//             // define GCV function and grid of \lambda_D values
+//             auto GCV = model_gcv.gcv<ExactEDF>();
+//             // optimize GCV
+//             Grid<fdapde::Dynamic> opt;
+//             opt.optimize(GCV, lambdas_mat);
     
-            // Stop measuring time
-            auto stop_time_gcv = high_resolution_clock::now();
-            auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
-            std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
+//             // Stop measuring time
+//             auto stop_time_gcv = high_resolution_clock::now();
+//             auto duration_gcv = duration_cast<milliseconds>(stop_time_gcv - start_time_gcv).count();
+//             std::cout << "Execution time GCV: " << duration_gcv << " ms" << std::endl;
      
             
-            best_lambda = opt.optimum();
+//             best_lambda = opt.optimum();
     
-            std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
+//             std::cout << "Best lambda is: " << std::setprecision(16) << best_lambda << std::endl; 
     
-            // Save lambda sequence 
-            std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
-            for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
-                fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
-            fileLambdaS.close();
+//             // Save lambda sequence 
+//             std::ofstream fileLambdaS(solutions_path_gcv + "/lambdas_seq_S.csv");
+//             for(std::size_t i = 0; i < lambdas_d.size(); ++i) 
+//                 fileLambdaS << std::setprecision(16) << lambdas_d[i] << "\n"; 
+//             fileLambdaS.close();
     
-            std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
-            for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
-                fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
-            fileLambda_T_Seq.close();
-    
-    
-            // Save lambda GCVopt for all alphas
-            std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
-            if(fileLambdaoptS.is_open()){
-              fileLambdaoptS << std::setprecision(16) << best_lambda[0];
-              fileLambdaoptS.close();
-            }
-            std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
-            if(fileLambdaoptT.is_open()){
-              fileLambdaoptT << std::setprecision(16) << best_lambda[1];
-              fileLambdaoptT.close();
-            }
-    
-            // Save GCV 
-            std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
-            std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
-            for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
-                fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
-            fileGCV_scores.close();
+//             std::ofstream fileLambda_T_Seq(solutions_path_gcv + "/lambdas_T_seq.csv");
+//             for(std::size_t i = 0; i < lambdas_t.size(); ++i) 
+//                 fileLambda_T_Seq << std::setprecision(16) << lambdas_t[i] << "\n"; 
+//             fileLambda_T_Seq.close();
     
     
-            // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
-            // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
-            //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
-            // fileGCV_edf.close();
+//             // Save lambda GCVopt for all alphas
+//             std::ofstream fileLambdaoptS(solutions_path_gcv + "/lambda_s_opt.csv");
+//             if(fileLambdaoptS.is_open()){
+//               fileLambdaoptS << std::setprecision(16) << best_lambda[0];
+//               fileLambdaoptS.close();
+//             }
+//             std::ofstream fileLambdaoptT(solutions_path_gcv + "/lambda_t_opt.csv");
+//             if(fileLambdaoptT.is_open()){
+//               fileLambdaoptT << std::setprecision(16) << best_lambda[1];
+//               fileLambdaoptT.close();
+//             }
+    
+//             // Save GCV 
+//             std::ofstream fileGCV_scores(solutions_path_gcv + "/score.csv");
+//             std::cout << "dim GCV.gcvs() = " << GCV.gcvs().size() << std::endl;
+//             for(std::size_t i = 0; i < GCV.gcvs().size(); ++i) 
+//                 fileGCV_scores << std::setprecision(16) << GCV.gcvs()[i] << "\n"; 
+//             fileGCV_scores.close();
     
     
-            std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
-            if(file_time_gcv.is_open()){
-                file_time_gcv << duration_gcv << "\n"; // Write execution time
-                file_time_gcv.close();
-            }
+//             // std::ofstream fileGCV_edf(solutions_path_gcv + "/edf.csv");
+//             // for(std::size_t i = 0; i < GCV.edfs().size(); ++i) 
+//             //     fileGCV_edf << std::setprecision(16) << GCV.edfs()[i] << "\n"; 
+//             // fileGCV_edf.close();
+    
+    
+//             std::ofstream file_time_gcv(solutions_path_gcv + "/time_gcv.csv"); 
+//             if(file_time_gcv.is_open()){
+//                 file_time_gcv << duration_gcv << "\n"; // Write execution time
+//                 file_time_gcv.close();
+//             }
             
     
-        }
+//         }
     
 
-    }
+//     }
 
 
-}
+// }
 
 
 // // test 7 (space-time) 

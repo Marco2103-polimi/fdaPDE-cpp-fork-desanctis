@@ -155,7 +155,10 @@ class RegressionBase :
     }; 
 
     // M debug 
-    void set_normalize_loss(bool flag) { normalize_loss_ = flag; }
+    void set_normalize_loss(bool flag) { 
+        std::cout << "set normalize_loss to " << flag << std::endl;
+        normalize_loss_ = flag;
+    }
     bool normalize_loss() const { return normalize_loss_; }
 
     // efficient left multiplication by matrix Q = W(I - X*(X^\top*W*X)^{-1}*X^\top*W)
@@ -230,6 +233,7 @@ class RegressionBase :
             // nota: n_locs() e non n_obs() perche' deve essere lunga il numero totale di osservazioni
             W_ = df_.template get<double>(WEIGHTS_BLK).sparseView(); 
             if(normalize_loss_){
+                std::cout << "dividing by n the weights..." << std::endl;
                 W_ = (1.0/n_obs())*df_.template get<double>(WEIGHTS_BLK).sparseView(); // M aggiunta costante a causa della normalizzazione della loss;                     
                 // ATT: messo n_obs(), non n_locs() (coerente con gcv.h e poi perchè è il vero numero di dati osservati)
                 // ATT: n_obs() è la costante di normalizzazione giusta, ma la dimensione di W è n_locs() !! 

@@ -82,6 +82,7 @@ template <typename Model_> class FPIRLS {
         // objective functional value at consecutive iterations
         double J_old = tolerance_ + 1, J_new = 0;
 	k_ = 0;
+    // max_iter_ = 1; // ATT per debug
     std::cout << "start fpirls with max_iter=" << max_iter_ << " and tolerance=" << tolerance_ << std::endl;
         while (k_ < max_iter_ && std::abs(J_new - J_old) > tolerance_) {
  
@@ -92,27 +93,17 @@ template <typename Model_> class FPIRLS {
             // \argmin_{\beta, f} [ \norm(W^{1/2}(y - X\beta - f_n))^2 + \lambda \int_D (Lf - u)^2 ]
 
             solver_.data().template insert<double>(OBSERVATIONS_BLK, m_->py());
-            solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW());  
-
+            
+            
+            std::cout << "ATT fpirls: added /n" << std::endl; 
+            solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW() / m_->n_obs()); // ATT: / n_obs() l'ho aggiunto forzatamente per confronto con libreria nuova (per pesi normalizzati, dato che set_normalize_loss non funziona veramente!)
+            
+            // std::cout << "ATT fpirls NOT normalized" << std::endl;
+            // solver_.data().template insert<double>(WEIGHTS_BLK, m_->pW()); 
 
             // debug 
-            // double max_w = (Eigen::SparseMatrix<double>(m_->pW())).coeffs().maxCoeff();
-            // std::cout << "L inf weights = " << max_w << std::endl; 
             if(k_==0)
                 weights_init_ = m_->pW(); 
-
-            // // debug 
-            // std::string R_path = "/mnt/c/Users/marco/OneDrive - Politecnico di Milano/Corsi/PhD/Codice/models/MSRPDE/Tests/Test_1";
-            // std::string solution_path = R_path + "/simulations/sim_1/fit"; 
-            // DMatrix<double> computedW = m_->pW();
-            // const static Eigen::IOFormat CSVFormatW(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
-            // std::ofstream fileW(solution_path + "/W" + std::to_string(k_) + ".csv");
-            // if(fileW.is_open()){
-            //     fileW << computedW.format(CSVFormatW);
-            //     fileW.close();
-            // }
-
-
 
             // update solver and solve
             solver_.init();
@@ -130,12 +121,13 @@ template <typename Model_> class FPIRLS {
             // update objective functional J = data_loss + f^\top * P_{\lambda}(f) * f 
             k_++; J_old = J_new;
 
-            // std::cout << "data_loss=" << m_->data_loss() << std::endl; 
-            // std::cout << "penalty=" << m_->ftPf(m_->lambda(), solver_.f(), solver_.g()) << std::endl; 
+            std::cout << "data_loss=" << m_->data_loss() << std::endl; 
+            std::cout << "penalty=" << m_->ftPf(m_->lambda(), solver_.f(), solver_.g()) << std::endl; 
 
 
             J_new = m_->data_loss() + m_->ftPf(m_->lambda(), solver_.f(), solver_.g());
 
+            std::cout << "|DJ| at iter" << k_ << " =" << std::abs(J_new - J_old) << std::endl;
 
         }
         std::cout << "end fpirls with " << k_ << " iterations and with |DJ|=" << std::abs(J_new - J_old) << std::endl;

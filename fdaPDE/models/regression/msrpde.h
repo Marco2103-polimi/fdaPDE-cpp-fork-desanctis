@@ -74,6 +74,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         W_ = fpirls_.solver().W();        
         f_ = fpirls_.solver().f();
         g_ = fpirls_.solver().g();
+
         // parametric part, if problem was semi-parametric
         if (has_covariates()) {
             beta_ = fpirls_.solver().beta();
@@ -97,6 +98,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             Sigma_b_(k) *= Delta_(k);
             Sigma_b_(k) = sigma_sq_hat_/Sigma_b_(k);   // ATT: assumes independence between random components
         }
+
         // set random effect in Base class for gcv computations at fpirls convergence 
         for(int i=0; i<n_groups_; ++i){
             DVector<double> temp = Z_(i)*b_hat_[i]; 
@@ -138,11 +140,17 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         for(int i=0; i < n_groups_; ++i){
 
             Z_(i) = matrix_indexing(Z(), loc_to_glob_map_[i]);
-
+    
             if(set_miss_rows_Z_to_zero_){
+                // std::cout << "Setting to zero rows of Z corresponding to missing values" << std::endl;
                 // metto a zero le righe di Z che hanno missing data -> questo serve per calcolo di Delta_, Ztilde e quindi b_i, sigma_sq_hat_ etc..
                 for(int glob_idx : loc_to_glob_map_[i]){
+                               
                     if(Base::nan_mask()[glob_idx]){
+                        
+                        // debug
+                        // std::cout << "glob_idx=" << glob_idx << std::endl;
+                        
                         //std::cout << "set to zero rows of Z missing" << std::endl;
                         std::vector<unsigned int> glob_idxs_of_block = loc_to_glob_map_[i]; 
                         unsigned int block_row_idx; 
@@ -159,8 +167,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
 
             ZTZ_(i) = Z_(i).transpose() * Z_(i);
         }
-
-        
+  
         // initialize Delta_
         for(int k=0; k < p(); ++k){
             Delta_(k) = 0.; 
@@ -208,6 +215,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             for(int k=0; k < group_sizes_[i]; ++k){
                 pW_(i)(k,k) = 1 + pW_(i)(k,k);	
             }
+
 	    }
 
         // set weights and pseudo-observations to zero where there are missing values
@@ -236,6 +244,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         }
 
 
+
     }
 
     // updates mean vector \mu after WLS solution
@@ -255,31 +264,95 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     }
 
     // returns the data loss (J_parametric)
-    double data_loss() const { 
+    double data_loss() { 
 
-        // J_parametric = -0.5*(mp-n)log(sigma^2) - 0.5*(|| Delta*b_i ||/ sigma)^2 + m*log(det(Delta))
+        if(likelihood_data_loss_){
 
-        double data_loss_value = 0.;
+            // J_parametric = -0.5*(mp-n)log(sigma^2) - 0.5*(|| Delta*b_i ||/ sigma)^2 + m*log(det(Delta))
 
-        // cast to int to avoid overflow
-        int signed_int = n_groups_*p() - n_obs();  
-        
-        data_loss_value -= signed_int * std::log(sigma_sq_hat_);
-        
-        for(auto i=0; i < n_groups_; ++i){
-            // log-likelihood of random effects	(completed outside the for cycle)
-            DVector<double> Deltab_i = Delta_.asDiagonal() * b_hat_[i];
-            data_loss_value -= ( Deltab_i ).dot( Deltab_i ) / sigma_sq_hat_;
+            std::cout << "data loss likelihood type" << std::endl;   
+
+            double data_loss_value = 0.;
+
+            // cast to int to avoid overflow
+            int signed_int = n_groups_*p() - n_obs();  
+            
+            data_loss_value -= signed_int * std::log(sigma_sq_hat_);
+            
+            for(auto i=0; i < n_groups_; ++i){
+                // log-likelihood of random effects	(completed outside the for cycle)
+                DVector<double> Deltab_i = Delta_.asDiagonal() * b_hat_[i];
+                data_loss_value -= ( Deltab_i ).dot( Deltab_i ) / sigma_sq_hat_;
+            }
+            
+            // Compute the determinant of Delta (NOTE: Delta is a diagonal matrix stored in a vector!)
+            double detDelta = 1.;
+            for(auto k=0; k < p(); ++k){
+                detDelta *= Delta_(k);
+            }
+            data_loss_value += 2 * n_groups_ * std::log(detDelta);
+
+            return data_loss_value/2;    
+
+        } else{
+
+            std::cout << "data loss FPIRLS type" << std::endl;   
+
+            double data_loss_value = 0.;
+
+            // // Compute the square root of the weights matrix with Cholosky
+            // Eigen::SimplicialLLT<SpMatrix<double>> chol(sparse_mat_weights_);
+            // std::cout << "sqrt computation" << std::endl;
+            // SpMatrix<double> sqrtW = chol.matrixL();              
+            // DVector<double> data_loss_vector = sqrtW * ( py_ - (mu_ + Base::random_part()) ); 
+
+            // set random effect in Base class
+            for(int i=0; i<n_groups_; ++i){
+                DVector<double> temp = Z_(i)*b_hat_[i]; 
+                for(int j=0; j<group_sizes_[i]; ++j){
+                    set_random_part(temp(j), loc_to_glob_map_[i][j]); 
+                }
+            } 
+
+            std::cout << "py_.size(): " << py_.size() << std::endl;
+            std::cout << "mu_.size(): " << mu_.size() << std::endl;
+            std::cout << "Base::random_part().size(): " << Base::random_part().size() << std::endl;
+            DVector<double> data_misfit_vector = py_ - (mu_ + Base::random_part()); 
+
+            for(int k = 0; k < n_groups_; ++k) {
+                std::vector<unsigned int> idxs_global_group_k = loc_to_glob_map_[k]; 
+                DVector<double> data_misfit_vector_group_k = data_misfit_vector(idxs_global_group_k); 
+
+                DMatrix<double> weights_group_k = pW_(k);
+
+                if (!weights_group_k.isApprox(weights_group_k.transpose())) {
+                    std::cerr << "Matrix not symmetric\n";
+                }
+
+                Eigen::LLT<DMatrix<double>> chol_k(weights_group_k);
+                if(chol_k.info() != Eigen::Success) {
+                    std::cerr << "LLT failed for group " << k << std::endl;
+                    continue; 
+                }
+                if(chol_k.info() != Eigen::Success) {
+                    std::cerr << "Matrix not positive definite\n";
+                }
+                DMatrix<double> sqrtW_group_k = chol_k.matrixL();      
+                std::cout << "...chol factor done for group " << k << std::endl;        
+                DVector<double> data_loss_vector_group_k = sqrtW_group_k * data_misfit_vector_group_k; 
+
+                for(int jj = 0; jj < data_loss_vector_group_k.size(); ++jj) {
+                    if(!Base::masked_obs()[idxs_global_group_k[jj]]) data_loss_value += (data_loss_vector_group_k.coeff(jj, 0))*(data_loss_vector_group_k.coeff(jj, 0));
+                }
+                
+            }
+            
+            std::cout << "data_loss_value = " << data_loss_value / n_obs() << std::endl;
+            return data_loss_value / n_obs();
+
+
         }
-        
-        // Compute the determinant of Delta (NOTE: Delta is a diagonal matrix stored in a vector!)
-        double detDelta = 1.;
-        for(auto k=0; k < p(); ++k){
-            detDelta *= Delta_(k);
-        }
-        data_loss_value += 2 * n_groups_ * std::log(detDelta);
 
-        return data_loss_value/2;    
     }
     
 
@@ -334,6 +407,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     const double& min_J() const { return min_J_; }; 
     const DVector<DMatrix<double>>& Z_debug() const { return Z_; };   // ATT e' solo per debug, Z() e' un metodo di RegressionBase
     const DVector<DMatrix<double>>& ZTZ() const { return ZTZ_; }; 
+    const DVector<DMatrix<double>>& ZtildeTZtilde() const { return ZtildeTZtilde_; }; 
     const SpMatrix<double>& pW_init() const{ return pW_init_; };
     const DVector<double>& Delta0_debug() const { return Delta_init_; };
     const SpMatrix<double>& Psi_debug() const { return Psi(); }; 
@@ -384,20 +458,31 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     }
 
     void set_fpirls_max_iter(int max_iter) { 
-        //std::cout << "setting max_iter fpirls to " << max_iter << std::endl; 
+        std::cout << "setting max_iter fpirls to " << max_iter << std::endl; 
         max_iter_ = max_iter; 
         fpirls_.set_max_iter(max_iter);   // M: it updates variable in fpirls object
     }
 
     void set_miss_rows_Z_to_zero(bool flag) { set_miss_rows_Z_to_zero_ = flag; } 
 
+    void set_sigma_with_edf(bool flag) { sigma_with_edf_ = flag; } 
+
+    void set_likelihood_data_loss(bool flag) { likelihood_data_loss_ = flag; } 
+
     // GCV support -> NON sommo le osservazioni mascherate !
     double norm(const DMatrix<double>& op1, const DMatrix<double>& op2) const {
 
+        std::cout << "(op1 - op2).squaredNorm()=" << (op2-op1).squaredNorm() << std::endl;
         double result = 0;
+        std::cout << "MSRPDE: sum response = " << op1.sum() << std::endl;
+        std::cout << "MSRPDE: sum total fit = " << op2.sum() << std::endl;
+        std::cout << "sum abs DIFF = " << (op2-op1).cwiseAbs().sum() << std::endl;
+        std::cout << "n_locs() = " << n_locs() << std::endl;
+        //std::cout << "Base::masked_obs()=" << Base::masked_obs() << std::endl;
         for (int i = 0; i < n_locs(); ++i) {
             if (!Base::masked_obs()[i]) result += (op2.coeff(i, 0) - op1.coeff(i, 0))*(op2.coeff(i, 0) - op1.coeff(i, 0));
         }
+        std::cout << " norm in msrpde = " << result << std::endl;
         return result;  
 
     }      
@@ -437,6 +522,8 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
     SpMatrix<double> pW_init_; 
     DVector<double> Delta_init_; 
     bool set_miss_rows_Z_to_zero_ = true; 
+    bool sigma_with_edf_ = false;    // default: quello di Melchionda 
+    bool likelihood_data_loss_ = true;    // default: quello di Melchionda 
 
     // helper functions
     DVector<double> vector_indexing(const DVector<double>& big_vector, const std::vector<unsigned int> ids){
@@ -495,6 +582,7 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
         // compute W*x - W*X*z = W*x - (W*X*(X^\top*W*X)^{-1}*X^\top*W)*x = W(I - H)*x = Q*x
         return W * x - W * X() * z;
     }   
+    
     double compute_edf(){
 
         // NOTA: Se scegliamo la strategia di Melchionda, per cui gli edf ci servono solo a convergenza fpirls, 
@@ -505,17 +593,57 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
 
         // M: nota: very inefficient computation !! 
         
-        DMatrix<double> T = PsiTD() * lmbQ_model(Psi()) + Base::P();  // nota: non posso chiamare direttamente Base::T perchè ci serve il nostro lmbQ !
+        // DMatrix<double> T = PsiTD() * lmbQ_model(Psi()) + Base::P();  // nota: non posso chiamare direttamente Base::T perchè ci serve il nostro lmbQ !
 
-        Eigen::PartialPivLU<DMatrix<double>> invT = T.partialPivLu();
-        DMatrix<double> E = PsiTD();          
-        DMatrix<double> S = lmbQ_model(Psi() * invT.solve(E));   // \Psi*T^{-1}*\Psi^T*Q
-        double ret_edf = 0.; 
+        // Eigen::PartialPivLU<DMatrix<double>> invT = T.partialPivLu();
+        // DMatrix<double> E = PsiTD();          
+        // DMatrix<double> S = lmbQ_model(Psi() * invT.solve(E));   // \Psi*T^{-1}*\Psi^T*Q
+        // double ret_edf = 0.; 
         
-        for(int i=0; i<S.rows(); ++i){
-            ret_edf += S(i,i); 
+        // for(int i=0; i<S.rows(); ++i){
+        //     ret_edf += S(i,i); 
+        // }
+        // return ret_edf;
+
+        // Alternative version with stochastic EDF 
+        std::cout << "Computing edf with stochastic method..." << std::endl;
+
+        // compute sample from Rademacher distribution
+        std::mt19937 rng(6839593);
+        std::bernoulli_distribution Be(0.5);   // bernulli distribution with parameter p = 0.5
+        unsigned int r_ = 100;  // number of monte carlo samples
+        DMatrix<double> Us_;          
+        Us_.resize(n_locs(), r_);       // preallocate memory for matrix Us
+        // fill matrix
+        for (int i = 0; i < n_locs(); ++i) {
+            for (int j = 0; j < r_; ++j) {
+                if (Be(rng))
+                    Us_(i, j) = 1.0;
+                else
+                    Us_(i, j) = -1.0;
+            }
         }
-        return ret_edf;
+        // prepare matrix Y
+        DMatrix<double> Y_ = Us_.transpose() * Psi();
+
+        // prepare matrix Bs_
+        DMatrix<double> Bs_ = DMatrix<double>::Zero(2 * Base::n_basis(), r_);
+        Bs_.topRows(Base::n_basis()) = -PsiTD() * lmbQ_model(Us_);
+
+        DMatrix<double> sol;              // room for problem solution
+        if (!has_covariates()) {   // nonparametric case
+            sol = fpirls_.solver().invA().solve(Bs_);
+        } else {
+            // solve system (A+UCV)*x = Bs via woodbury decomposition using matrices U and V cached by model_
+            sol = SMW<>().solve(fpirls_.solver().invA(), fpirls_.solver().U(), fpirls_.solver().XtWX(), fpirls_.solver().V(), Bs_);
+        }
+        // NOTA: siccome accedo con fpirls, le quantità sono aggiornate con i pesi correnti
+
+        // compute approximated Tr[S] using monte carlo mean
+        double MCmean = 0;
+        for (int i = 0; i < r_; ++i) MCmean += Y_.row(i).dot(sol.col(i).head(Base::n_basis()));
+        return MCmean / r_;
+
     }
 
     void compute_sigma_sq_hat(bool edf_flag=false) {
@@ -551,29 +679,37 @@ class MSRPDE : public RegressionBase<MSRPDE<RegularizationType_>, Regularization
             sigma_sq_hat_ += res_i.dot(res_i);
         }
 
-        // // Versione Pigani (per test 1-tris)
-        // std::cout << "ATT: RUNNING PIGANI sigma2 computaiton!!" << std::endl;
-        // double edf = compute_edf(); 
-        // if(has_covariates()){
-        //     edf += q();   // p()? Pigani non lo mette  
-        // }
-        // sigma_sq_hat_ /= (n_obs()-edf); 
-
-    
-        // Versione Melchionda 
-        if(edf_flag){
+        
+        if(sigma_with_edf_){
+            // Versione Pigani
+            std::cout << "ATT: RUNNING PIGANI sigma2 computation!!" << std::endl;
             double edf = compute_edf(); 
+            std::cout << "end edf computation" << std::endl;
             if(has_covariates()){
-                edf += q();   // +m*p()?
+                edf += q();   // p()? Pigani non lo mette  
             }
             sigma_sq_hat_ /= (n_obs()-edf); 
-
-            // std::cout << "edf = " << std::setprecision(16) << edf << std::endl;
-
         } else{
-            sigma_sq_hat_ /= n_obs();  
-        }
+            // Versione Melchionda 
+            if(edf_flag){
+
+                double edf = compute_edf(); 
+                if(has_covariates()){
+                    edf += q();   // +m*p()?
+                }
+                sigma_sq_hat_ /= (n_obs()-edf); 
+
+                std::cout << "edf = " << std::setprecision(16) << edf << std::endl;
+
+            } else{
+                sigma_sq_hat_ /= n_obs();  
+            }
   
+        }
+
+
+    
+
         
     }
     void build_LTL(){

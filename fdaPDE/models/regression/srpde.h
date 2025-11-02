@@ -75,6 +75,15 @@ class SRPDE : public RegressionBase<SRPDE, SpaceOnly> {
             // prepare rhs of linear system
             b_.resize(A_.rows());
             b_.block(n_basis(), 0, n_basis(), 1) = lambda_D() * u();
+
+            // M for debug 
+            std::cout << "solver: sum abs PsiTD =" << PsiTD().cwiseAbs().sum() << std::endl;
+            std::cout << "solver: sum abs W() =" << W().cwiseAbs().sum() << std::endl;
+            std::cout << "solver: sum abs Psi()) =" << Psi().cwiseAbs().sum() << std::endl;
+            std::cout << "solver: lambda_D() =" << lambda_D() << std::endl;
+            std::cout << "solver: sum abs R1() =" << R1().cwiseAbs().sum() << std::endl;
+            std::cout << "solver: sum abs R0() =" << R0().cwiseAbs().sum() << std::endl;
+
             return;
         }
         if (runtime().query(runtime_status::require_W_update)) {

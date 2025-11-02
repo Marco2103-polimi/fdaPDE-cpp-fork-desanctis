@@ -27,8 +27,8 @@
 // // case studies 
 // #include "src/case_study_MQSRPDE.cpp"
 // #include "src/case_study_MSRPDE.cpp"
-// #include "src/case_study_MSTRPDE.cpp"
-#include "src/case_study_MSTRPDE-north.cpp"
+#include "src/case_study_MSTRPDE.cpp"
+// #include "src/case_study_MSTRPDE-north.cpp"
 
 int main(int argc, char **argv){
   // start testing

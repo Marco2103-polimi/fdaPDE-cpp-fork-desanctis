@@ -78,6 +78,8 @@ class GCV {
         if(model_.has_random_covariates()){
             fit += model_.random_part(); 
         }
+        std::cout << "GCV: sum abs response = " << model_.y().cwiseAbs().sum() << std::endl;
+        std::cout << "GCV: sum abs total fit = " << fit.cwiseAbs().sum() << std::endl;
 
         // return gcv at point
         double gcv_value; 
@@ -86,7 +88,10 @@ class GCV {
             gcv_value = model_.norm(fit, model_.y()) / std::pow(dor, 2);  // M: SENZA costante a causa della rinormalizzazione loss 
         } else{
             std::cout << "gcv loss NOT normalized" << std::endl; 
-            gcv_value = (n / std::pow(dor, 2)) * (model_.norm(fit, model_.y()));  // M: CON costante per confronto con Melchionda 
+            gcv_value = (n / std::pow(dor, 2)) * (model_.norm(fit, model_.y()));  // M: CON costante per confronto con Melchionda
+            std::cout << "GCV: norm = " << model_.norm(fit, model_.y()) << std::endl;
+            std::cout << "GCV: dor = " << dor << std::endl;
+            std::cout << "GCV: (n / std::pow(dor, 2)) * norm = " << (n / std::pow(dor, 2)) * model_.norm(fit, model_.y()) << std::endl;
         }
     
         gcvs_.emplace_back(gcv_value);
@@ -142,6 +147,14 @@ class GCV {
             return (model_.norm(fit, model_.y()) / std::pow(dor, 2));   // M: SENZA costante a causa della rinormalizzazione loss 
         } else{
             std::cout << "gcv loss NOT normalized" << std::endl; 
+
+            std::cout << "GCV: sum abs response = " << model_.y().cwiseAbs().sum() << std::endl;
+            std::cout << "GCV: sum abs total fit = " << fit.cwiseAbs().sum() << std::endl;
+
+            std::cout << "GCV: norm = " << model_.norm(fit, model_.y()) << std::endl;
+            std::cout << "GCV: dor = " << dor << std::endl;
+            std::cout << "GCV: (n / std::pow(dor, 2)) * norm = " << (model_.n_obs() / std::pow(dor, 2)) * model_.norm(fit, model_.y()) << std::endl;            
+
             return (model_.n_obs() / std::pow(dor, 2)) * (model_.norm(fit, model_.y())); // M: CON costante per confronto con Melchionda 
         }
        
